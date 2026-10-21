@@ -1,0 +1,7 @@
+let x = 20;
+let y = 22;
+let answer = x + y;
+
+print("Hello");
+print(answer);
+print(answer - 2);

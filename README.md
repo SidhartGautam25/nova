@@ -36,46 +36,44 @@ A standalone, self-contained educational computing platform written in modern Ja
 
 ---
 
-## Zero-npm Standalone Installation
+## Standalone Download & Installation (No Git Cloning, No npm)
 
-No npm packages or package managers required. Just clone the repo and add `bin` to your `PATH` (just like setting up Java, Python, or Go).
+You do **not** need to clone the repository or use npm. You can download and install Nova just like Python, Go, or the Java JDK.
 
-### Option A: Automatic 1-Click Setup
+### Method 1: One-Line Terminal Installer (Fastest)
 
-- **Windows**:
-  Double-click `setup.bat` (or run it in Command Prompt / PowerShell):
-  ```cmd
-  setup.bat
+Open your terminal and run the one-line install command:
+
+- **Windows (PowerShell)**:
+  ```powershell
+  irm https://raw.githubusercontent.com/<USER>/<REPO>/main/install.ps1 | iex
   ```
-- **macOS / Linux**:
-  Run `setup.sh`:
+- **macOS / Linux (Terminal)**:
   ```bash
-  chmod +x setup.sh && ./setup.sh
+  curl -fsSL https://raw.githubusercontent.com/<USER>/<REPO>/main/install.sh | bash
   ```
 
-### Option B: Manual Setup (Standard PATH)
+What this does automatically:
+1. Downloads the latest clean `nova-sdk.zip`.
+2. Extracts it to `~/.nova` (`C:\Users\<username>\.nova` on Windows).
+3. Adds the `bin` directory to your persistent `PATH` and sets `NOVA_HOME`.
+4. Commands `nova` and `novac` are instantly available!
 
-Add the `computer/bin` directory to your user or system `PATH`:
+---
 
-- **Windows**:
-  1. Open Start Menu $\to$ search for **Environment Variables** $\to$ click **Edit the system environment variables**.
-  2. Click **Environment Variables...**.
-  3. Under User variables, select **Path** and click **Edit...**.
-  4. Click **New** and paste the full path to your `computer\bin` folder (e.g. `D:\fullcomputer\computer\bin`).
-  5. Click **OK** to save.
+### Method 2: Direct ZIP Download
 
-- **macOS / Linux**:
-  Add this line to your `~/.bashrc` or `~/.zshrc`:
-  ```bash
-  export PATH="/path/to/computer/bin:$PATH"
-  ```
-
-Open a **new terminal**, and you can now run `novac` and `nova` directly from any folder!
-
-```bash
-novac --help
-nova --help
-```
+If you prefer downloading manually:
+1. Go to the GitHub Releases page and download **`nova-sdk.zip`**.
+2. Unzip it to any folder on your computer (e.g. `C:\nova-sdk` or `D:\tools\nova-sdk`).
+3. Inside the unzipped folder:
+   - **On Windows**: Double-click **`setup.bat`** (it automatically adds the folder to your User `PATH`).
+   - **On macOS / Linux**: Run `./setup.sh`.
+4. Open a new terminal and run:
+   ```bash
+   novac --help
+   nova --help
+   ```
 
 ---
 
@@ -192,6 +190,18 @@ Options:
   -v, --version    Display runtime version.
   -h, --help       Display help message.
 ```
+
+---
+
+## Packaging the Distribution SDK (For Maintainers)
+
+To produce a fresh `nova-sdk.zip` distribution package for release:
+
+```bash
+node scripts/package-sdk.js
+```
+
+This creates a clean, lightweight bundle in `dist/nova-sdk/` and compresses it to `dist/nova-sdk.zip`, stripping out git files, internal test harnesses, and development files.
 
 ---
 

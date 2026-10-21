@@ -5,7 +5,8 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "package": "node scripts/package-sdk.js"
   },
   "keywords": [],
   "author": "",
