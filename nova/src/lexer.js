@@ -1,7 +1,16 @@
 
 const KEYWORDS = new Map([
   ["let", "LET"],
+  ["make", "MAKE"],
+  ["int", "INT"],
   ["print", "PRINT"],
+  ["run", "RUN"],
+  ["times", "TIMES"],
+  ["if", "IF"],
+  ["else", "ELSE"],
+  ["while", "WHILE"],
+  ["break", "BREAK"],
+  ["continue", "CONTINUE"],
 ]);
 
 export class LexerError extends Error {
@@ -191,9 +200,34 @@ export function tokenize(source) {
         }
         return;
 
-      // Single-character tokens
+      // Single-character and two-character tokens
       case "=":
-        emit("EQUAL", "=");
+        if (match("=")) {
+          emit("EQUAL_EQUAL", "==");
+        } else {
+          emit("EQUAL", "=");
+        }
+        return;
+      case "!":
+        if (match("=")) {
+          emit("BANG_EQUAL", "!=");
+        } else {
+          emit("BANG", "!");
+        }
+        return;
+      case ">":
+        if (match("=")) {
+          emit("GREATER_EQUAL", ">=");
+        } else {
+          emit("GREATER", ">");
+        }
+        return;
+      case "<":
+        if (match("=")) {
+          emit("LESS_EQUAL", "<=");
+        } else {
+          emit("LESS", "<");
+        }
         return;
       case "+":
         emit("PLUS", "+");
@@ -212,6 +246,12 @@ export function tokenize(source) {
         return;
       case ";":
         emit("SEMICOLON", ";");
+        return;
+      case "{":
+        emit("LEFT_BRACE", "{");
+        return;
+      case "}":
+        emit("RIGHT_BRACE", "}");
         return;
 
       // Strings

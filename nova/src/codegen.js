@@ -24,7 +24,29 @@ export function generateAssembly(analysis) {
   let stringCounter=0;
 
   let printCallCounter = 0;
-let needsIntegerPrinter = false;
+  let loopCounter = 0;
+  let whileCounter = 0;
+  let ifCounter = 0;
+  let cmpCounter = 0;
+  const loopStack = [];
+  let needsIntegerPrinter = false;
+
+  let zeroConstantLabel = null;
+  let oneConstantLabel = null;
+
+  function getZeroLabel() {
+    if (!zeroConstantLabel) {
+      zeroConstantLabel = addConstant(0);
+    }
+    return zeroConstantLabel;
+  }
+
+  function getOneLabel() {
+    if (!oneConstantLabel) {
+      oneConstantLabel = addConstant(1);
+    }
+    return oneConstantLabel;
+  }
 
 function emitIntegerPrintCall() {
   needsIntegerPrinter = true;
@@ -109,6 +131,10 @@ function emitIntegerPrintCall() {
   function generateExpression(node) {
     switch (node.type) {
       case "NumberLiteral": {
+        if (node.value >= 0 && node.value <= 511) {
+          emit(`LOADI R0, #${node.value}`);
+          return;
+        }
         const label = addConstant(node.value);
         emit(`LD R0, ${label}`);
         return;
@@ -144,7 +170,8 @@ function emitIntegerPrintCall() {
       }
 
       case "BinaryExpression": {
-        if (node.operator !== "+" && node.operator !== "-") {
+        const isComparison = [">", "<", ">=", "<=", "==", "!="].includes(node.operator);
+        if (node.operator !== "+" && node.operator !== "-" && !isComparison) {
           throw new CodegenError(
             `Operator '${node.operator}' requires a runtime helper`,
             node
@@ -171,6 +198,31 @@ function emitIntegerPrintCall() {
         emit("NOT R1, R1");
         emit("ADDI R1, #1");
         emit("ADD R0, R2, R1");
+
+        if (node.operator === "-") {
+          return;
+        }
+
+        // Comparison operators
+        const cmpId = cmpCounter++;
+        const trueLabel = `CMP_TRUE_${cmpId}`;
+        const endLabel = `CMP_END_${cmpId}`;
+
+        const branchInstruction = {
+          ">": "BRp",
+          "<": "BRn",
+          ">=": "BRzp",
+          "<=": "BRnz",
+          "==": "BRz",
+          "!=": "BRnp",
+        }[node.operator];
+
+        emit(`${branchInstruction} ${trueLabel}`);
+        emit("LOADI R0, #0");
+        emit(`BRnzp ${endLabel}`);
+        emitLabel(trueLabel);
+        emit("LOADI R0, #1");
+        emitLabel(endLabel);
         return;
       }
 
@@ -219,6 +271,128 @@ function emitIntegerPrintCall() {
         return;
       }
 
+      case "RunLoopStatement": {
+        const id = loopCounter++;
+        const testLabel = `LOOP_TEST_${id}`;
+        const stepLabel = `LOOP_STEP_${id}`;
+        const endLabel = `LOOP_END_${id}`;
+        const counterLabel = `LOOP_CTR_${id}`;
+
+        addData(counterLabel, ".FILL #0");
+
+        // 1. Evaluate count expression into R0
+        generateExpression(node.count);
+
+        // 2. Store count into loop counter variable
+        emit(`ST R0, ${counterLabel}`);
+
+        // 3. Loop condition test: LD R0 sets CC (N, Z, P)
+        emitLabel(testLabel);
+        emit(`LD R0, ${counterLabel}`);
+        emit(`BRnz ${endLabel}`);
+
+        // 4. Generate loop body statements with loop context on stack
+        loopStack.push({ breakLabel: endLabel, continueLabel: stepLabel });
+        for (const statement of node.body) {
+          generateStatement(statement);
+        }
+        loopStack.pop();
+
+        // 5. Decrement counter at stepLabel and jump back to test
+        emitLabel(stepLabel);
+        emit(`LD R0, ${counterLabel}`);
+        emit("ADDI R0, #-1");
+        emit(`ST R0, ${counterLabel}`);
+        emit(`BRnzp ${testLabel}`);
+
+        // 6. Loop exit
+        emitLabel(endLabel);
+        return;
+      }
+
+      case "WhileStatement": {
+        const id = whileCounter++;
+        const testLabel = `WHILE_TEST_${id}`;
+        const endLabel = `WHILE_END_${id}`;
+
+        emitLabel(testLabel);
+
+        // 1. Evaluate condition into R0
+        generateExpression(node.condition);
+        emit("ADDI R0, #0");
+        emit(`BRz ${endLabel}`);
+
+        // 2. Body statements
+        loopStack.push({ breakLabel: endLabel, continueLabel: testLabel });
+        for (const statement of node.body) {
+          generateStatement(statement);
+        }
+        loopStack.pop();
+
+        // 3. Loop back to test
+        emit(`BRnzp ${testLabel}`);
+
+        // 4. End label
+        emitLabel(endLabel);
+        return;
+      }
+
+      case "IfStatement": {
+        const id = ifCounter++;
+        const elseLabel = `ELSE_${id}`;
+        const endLabel = `END_IF_${id}`;
+
+        // 1. Evaluate condition
+        generateExpression(node.condition);
+        emit("ADDI R0, #0");
+        emit(`BRz ${node.elseBranch ? elseLabel : endLabel}`);
+
+        // 2. Then branch statements
+        for (const statement of node.thenBranch) {
+          generateStatement(statement);
+        }
+
+        if (node.elseBranch) {
+          emit(`BRnzp ${endLabel}`);
+          emitLabel(elseLabel);
+
+          if (node.elseBranch.type === "IfStatement") {
+            generateStatement(node.elseBranch);
+          } else {
+            for (const statement of node.elseBranch) {
+              generateStatement(statement);
+            }
+          }
+        }
+
+        emitLabel(endLabel);
+        return;
+      }
+
+      case "BreakStatement": {
+        const currentLoop = loopStack[loopStack.length - 1];
+        if (!currentLoop) {
+          throw new CodegenError("'break' used outside of loop", node);
+        }
+        emit(`BRnzp ${currentLoop.breakLabel}`);
+        return;
+      }
+
+      case "ContinueStatement": {
+        const currentLoop = loopStack[loopStack.length - 1];
+        if (!currentLoop) {
+          throw new CodegenError("'continue' used outside of loop", node);
+        }
+        emit(`BRnzp ${currentLoop.continueLabel}`);
+        return;
+      }
+
+      case "AssignmentStatement": {
+        generateExpression(node.value);
+        emit(`ST R0, ${variableLabel(node.symbol)}`);
+        return;
+      }
+
       default:
         throw new CodegenError(
           `Unsupported statement '${node.type}'`,
@@ -227,41 +401,20 @@ function emitIntegerPrintCall() {
     }
   }
 
-  // Reserve a literal for the initial stack address.
-  const stackTopLabel = "STACK_TOP";
-
   instructions.push(".ORIG x3000");
 
   // Initialize R6 from a nearby literal.
-  emit(`LD R6, ${stackTopLabel}`);
+  emit("BRnzp START_INIT");
+  instructions.push("STACK_TOP:");
+  instructions.push("    .FILL xFF00");
+  instructions.push("START_INIT:");
+  emit("LD R6, STACK_TOP");
 
   for (const statement of ast.statements) {
     generateStatement(statement);
   }
 
-    emit("TRAP x25");
-
-  if (needsIntegerPrinter) {
-    instructions.push(...buildIntegerPrinter());
-    addData("INT_MIN", ".FILL x8000");
-    addData("ASCII_MINUS", ".FILL #45");
-    addData("INT_MIN_STRING_PTR", ".FILL INT_MIN_STRING_DATA");
-    data.push("INT_MIN_STRING_DATA:");
-    data.push("    .FILL #45");
-    data.push("    .FILL #51");
-    data.push("    .FILL #50");
-    data.push("    .FILL #55");
-    data.push("    .FILL #54");
-    data.push("    .FILL #56");
-    data.push("    .FILL #0");
-    addData("INT_10000", ".FILL #10000");
-    addData("INT_1000", ".FILL #1000");
-    addData("INT_100", ".FILL #100");
-    addData("INT_10", ".FILL #10");
-    addData("INT_1", ".FILL #1");
-    addData("ASCII_ZERO", ".FILL #48");
-    addData("INT_ONE", ".FILL #1");
-  }
+  emit("TRAP x25");
 
   for (const symbol of symbols.values()) {
     const label = variableLabel(symbol);
@@ -272,10 +425,39 @@ function emitIntegerPrintCall() {
     }
   }
 
-  addData(stackTopLabel, ".FILL xFF00");
-
-  // Put the data after the generated code.
+  // Put user data right after TRAP x25
   instructions.push(...data);
+
+  if (needsIntegerPrinter) {
+    instructions.push(...buildIntegerPrinter());
+    instructions.push("INT_MIN:");
+    instructions.push("    .FILL x8000");
+    instructions.push("ASCII_MINUS:");
+    instructions.push("    .FILL #45");
+    instructions.push("INT_MIN_STRING_PTR: .FILL INT_MIN_STRING_DATA");
+    instructions.push("INT_MIN_STRING_DATA:");
+    instructions.push("    .FILL #45");
+    instructions.push("    .FILL #51");
+    instructions.push("    .FILL #50");
+    instructions.push("    .FILL #55");
+    instructions.push("    .FILL #54");
+    instructions.push("    .FILL #56");
+    instructions.push("    .FILL #0");
+    instructions.push("INT_10000:");
+    instructions.push("    .FILL #10000");
+    instructions.push("INT_1000:");
+    instructions.push("    .FILL #1000");
+    instructions.push("INT_100:");
+    instructions.push("    .FILL #100");
+    instructions.push("INT_10:");
+    instructions.push("    .FILL #10");
+    instructions.push("INT_1:");
+    instructions.push("    .FILL #1");
+    instructions.push("ASCII_ZERO:");
+    instructions.push("    .FILL #48");
+    instructions.push("INT_ONE:");
+    instructions.push("    .FILL #1");
+  }
 
   instructions.push(".END");
 

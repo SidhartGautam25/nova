@@ -1,11 +1,58 @@
-// Declare variables
-let base = 100;
-let multiplier = 5;
-let bonus = 42;
+make int x = 15;
 
-// Arithmetic expressions
-let total = (base + bonus) - multiplier;
+if (x > 10) {
+    print("x is greater than 10\n");
+} else if (x == 10) {
+    print("x is 10\n");
+} else {
+    print("x is less than 10\n");
+}
 
-// Print string literals and integer values
-print("Computing total score:");
-print(total);
+make int count = 0;
+while (count < 5) {
+    count = count + 1;
+    if (count == 2) {
+        continue;
+    }
+    if (count == 4) {
+        break;
+    }
+    print(count);
+}
+print("\n");
+
+make int r = 0;
+run 10 times {
+    r = r + 1;
+    if (r == 3) {
+        break;
+    }
+}
+print("Loop broke at: ");
+print(r);
+print("\n");
+
+make int count = 0;
+while (count < 5) {
+    count = count + 1;
+    if (count == 2) {
+        continue;
+    }
+    if (count == 4) {
+        break;
+    }
+    print(count);
+}
+print("\n");
+
+make int r = 0;
+run 10 times {
+    r = r + 1;
+    if (r == 3) {
+        break;
+    }
+}
+print("Loop broke at: ");
+print(r);
+print("\n");
+
