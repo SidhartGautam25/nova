@@ -19,6 +19,10 @@ export class Memory {
     this.data = new Uint16Array(MEMORY_SIZE);
   }
 
+  get length() {
+    return this.data.length;
+  }
+
   validateAddress(address, operation) {
     if (
       !Number.isInteger(address) ||

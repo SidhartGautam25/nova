@@ -177,6 +177,10 @@ function parseSource(source) {
       continue;
     }
 
+    if (mnemonic === ".END") {
+      break;
+    }
+
     const entry = {
       label,
       mnemonic,
@@ -275,11 +279,29 @@ function encodeEntry(entry, symbols) {
     }
 
     case "ADDI": {
+      if (operands.length === 2) {
+        const register = parseRegister(operands[0], lineNumber);
+        const imm = parseNumber(operands[1], lineNumber);
+        requireRange(imm, -32, 31, "ADDI immediate", lineNumber);
+        return encodeADDI(register, imm);
+      }
+      if (operands.length === 3) {
+        const dr = parseRegister(operands[0], lineNumber);
+        const sr = parseRegister(operands[1], lineNumber);
+        const imm = parseNumber(operands[2], lineNumber);
+        if (dr === sr) {
+          requireRange(imm, -32, 31, "ADDI immediate", lineNumber);
+          return encodeADDI(dr, imm);
+        }
+        if (imm === 0) {
+          return encodeAND(dr, sr, sr);
+        }
+        throw new AssemblyError(
+          "ADDI with different source and destination only supports immediate #0",
+          lineNumber
+        );
+      }
       expectCount(entry, 2);
-      const register = parseRegister(operands[0], lineNumber);
-      const imm = parseNumber(operands[1], lineNumber);
-      requireRange(imm, -32, 31, "ADDI immediate", lineNumber);
-      return encodeADDI(register, imm);
     }
 
     case "ADD":

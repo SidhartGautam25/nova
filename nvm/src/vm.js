@@ -1,8 +1,3 @@
-import {
-  encodeLOADI,
-  encodeADDI,
-  encodeHALT,
-} from "./isa.js";
 import { CPU } from "./cpu.js";
 import { WORD_MASK } from "./isa.js";
 import { Memory , MEMORY_SIZE } from "./memory.js";
@@ -72,22 +67,3 @@ export class VirtualMachine {
     };
   }
 }
-// Program:
-// LOADI R0, 10
-// ADDI  R0, 5
-// HALT
-
-const program = [
-  encodeLOADI(0, 10),
-  encodeADDI(0, 5),
-  encodeHALT(),
-];
-
-const vm = new VirtualMachine();
-vm.loadProgram(program);
-
-const result = vm.run();
-
-console.log("R0 =", result.registers[0]);
-console.log("Instructions executed =", result.steps);
-console.log("Halted =", vm.halted);

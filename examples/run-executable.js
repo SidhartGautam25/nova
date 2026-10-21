@@ -1,8 +1,7 @@
-
 import { readFile } from "node:fs/promises";
 
-import { VirtualMachine } from "../src/vm.js";
-import { loadExecutable } from "../src/loader.js";
+import { VirtualMachine } from "../ndk/vm.js";
+import { loadExecutable } from "../ndk/loader.js";
 
 const bytes = await readFile("program.nvm");
 
@@ -17,5 +16,7 @@ const result = vm.run();
 console.log("Registers:", result.registers);
 console.log("Executed instructions:", result.steps);
 
+
+// to run this -> node examples/run-executable.js
 
 // to run this -> node examples/run-executable.js

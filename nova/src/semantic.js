@@ -137,16 +137,9 @@ export function analyze(ast) {
       }
 
      case "PrintStatement": {
-  generateExpression(node.expression);
-
-  if (node.expression.valueType === "string") {
-    emit("TRAP x22");
-  } else {
-    emitIntegerPrintCall();
-  }
-
-  break;
-}
+        analyzeExpression(node.expression);
+        return;
+      }
 
       default:
         fail(

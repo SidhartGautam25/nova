@@ -34,7 +34,7 @@ function emitIntegerPrintCall() {
   const returnLabel = `AFTER_PRINT_INT_${id}`;
 
   emit(`LD R7, ${returnAddressLabel}`);
-  emit("JMP PRINT_INT");
+  emit("BRnzp PRINT_INT");
   emit(`${returnLabel}:`);
 
   data.push(
@@ -97,13 +97,13 @@ function emitIntegerPrintCall() {
   }
 
   function pushR0() {
-    emit("ADDI R6, R6, #-1");
+    emit("ADDI R6, #-1");
     emit("STR R0, R6, #0");
   }
 
   function popR2() {
     emit("LDR R2, R6, #0");
-    emit("ADDI R6, R6, #1");
+    emit("ADDI R6, #1");
   }
 
   function generateExpression(node) {
@@ -133,7 +133,7 @@ function emitIntegerPrintCall() {
         if (node.operator === "-") {
           generateExpression(node.operand);
           emit("NOT R0, R0");
-          emit("ADDI R0, R0, #1");
+          emit("ADDI R0, #1");
           return;
         }
 
@@ -157,7 +157,7 @@ function emitIntegerPrintCall() {
 
         // Compute the right operand.
         generateExpression(node.right);
-        emit("ADD R1, R0, R0");
+        emit("AND R1, R0, R0");
 
         // Restore the left operand into R2.
         popR2();
@@ -169,7 +169,7 @@ function emitIntegerPrintCall() {
 
         // R2 - R1 = R2 + (~R1) + 1
         emit("NOT R1, R1");
-        emit("ADDI R1, R1, #1");
+        emit("ADDI R1, #1");
         emit("ADD R0, R2, R1");
         return;
       }
@@ -209,19 +209,13 @@ function emitIntegerPrintCall() {
       }
 
       case "PrintStatement": {
-        if (node.expression.valueType !== "integer") {
-          throw new CodegenError(
-            "String printing is implemented in Chapter 7",
-            node
-          );
-        }
-
         generateExpression(node.expression);
 
-        // TEMPORARY DEBUGGING CONVENTION:
-        // OUT writes only the low byte as one character.
-        // This does NOT print an integer as decimal text.
-        emit("TRAP x21");
+        if (node.expression.valueType === "string") {
+          emit("TRAP x22");
+        } else {
+          emitIntegerPrintCall();
+        }
         return;
       }
 
@@ -245,10 +239,29 @@ function emitIntegerPrintCall() {
     generateStatement(statement);
   }
 
-  emit("TRAP x25");
+    emit("TRAP x25");
 
-  // Put the data after the generated code.
-  instructions.push(...data);
+  if (needsIntegerPrinter) {
+    instructions.push(...buildIntegerPrinter());
+    addData("INT_MIN", ".FILL x8000");
+    addData("ASCII_MINUS", ".FILL #45");
+    addData("INT_MIN_STRING_PTR", ".FILL INT_MIN_STRING_DATA");
+    data.push("INT_MIN_STRING_DATA:");
+    data.push("    .FILL #45");
+    data.push("    .FILL #51");
+    data.push("    .FILL #50");
+    data.push("    .FILL #55");
+    data.push("    .FILL #54");
+    data.push("    .FILL #56");
+    data.push("    .FILL #0");
+    addData("INT_10000", ".FILL #10000");
+    addData("INT_1000", ".FILL #1000");
+    addData("INT_100", ".FILL #100");
+    addData("INT_10", ".FILL #10");
+    addData("INT_1", ".FILL #1");
+    addData("ASCII_ZERO", ".FILL #48");
+    addData("INT_ONE", ".FILL #1");
+  }
 
   for (const symbol of symbols.values()) {
     const label = variableLabel(symbol);
@@ -260,6 +273,9 @@ function emitIntegerPrintCall() {
   }
 
   addData(stackTopLabel, ".FILL xFF00");
+
+  // Put the data after the generated code.
+  instructions.push(...data);
 
   instructions.push(".END");
 
@@ -273,20 +289,20 @@ function buildIntegerPrinter() {
     "PRINT_INT:",
     "    LD R1, INT_MIN",
     "    NOT R2, R1",
-    "    ADDI R2, R2, #1",
+    "    ADDI R2, #1",
     "    ADD R2, R0, R2",
     "    BRz PRINT_INT_MIN",
 
-    "    ADDI R4, R0, #0",
+    "    AND R4, R0, R0",
     "    BRn PRINT_INT_NEGATIVE",
     "    BRnzp PRINT_INT_DIGITS",
 
     "PRINT_INT_NEGATIVE:",
     "    LD R1, ASCII_MINUS",
-    "    ADDI R0, R1, #0",
+    "    AND R0, R1, R1",
     "    TRAP x21",
     "    NOT R4, R4",
-    "    ADDI R4, R4, #1",
+    "    ADDI R4, #1",
     "    BRnzp PRINT_INT_DIGITS",
 
     "PRINT_INT_MIN:",
@@ -324,11 +340,11 @@ function buildIntegerPrinter() {
       `${loop}:`,
       `    LD R1, INT_${name}`,
       "    NOT R2, R1",
-      "    ADDI R2, R2, #1",
+      "    ADDI R2, #1",
       "    ADD R2, R4, R2",
       `    BRn ${done}`,
-      "    ADDI R4, R2, #0",
-      "    ADDI R3, R3, #1",
+      "    AND R4, R2, R2",
+      "    ADDI R3, #1",
       `    BRnzp ${loop}`,
       `${done}:`
     );
@@ -343,9 +359,9 @@ function buildIntegerPrinter() {
       );
     } else {
       lines.push(
-        "    ADDI R1, R3, #0",
+        "    AND R1, R3, R3",
         `    BRp ${output}`,
-        "    ADDI R1, R5, #0",
+        "    AND R1, R5, R5",
         `    BRp ${output}`,
         `    BRnzp ${next}`,
         `${output}:`,
