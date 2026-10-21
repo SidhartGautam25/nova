@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Nova Language & NVM Standalone Installer for macOS and Linux
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/<USER>/<REPO>/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/SidhartGautam25/nova/main/install.sh | bash
 # or run locally:
 #   bash install.sh
 
@@ -21,14 +21,21 @@ echo "Installing Nova to: $INSTALL_DIR"
 rm -rf "$INSTALL_DIR"
 mkdir -p "$INSTALL_DIR"
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd || echo "")"
-LOCAL_ZIP="$SCRIPT_DIR/dist/nova-sdk.zip"
+SCRIPT_DIR=""
+if [ -n "${BASH_SOURCE[0]}" ]; then
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd || echo "")"
+fi
+
+LOCAL_ZIP=""
+if [ -n "$SCRIPT_DIR" ]; then
+    LOCAL_ZIP="$SCRIPT_DIR/dist/nova-sdk.zip"
+fi
 
 if [ -n "$LOCAL_ZIP" ] && [ -f "$LOCAL_ZIP" ]; then
     echo "Extracting local package: $LOCAL_ZIP"
     unzip -q -o "$LOCAL_ZIP" -d "$INSTALL_DIR"
 else
-    ZIP_URL="${NOVA_REPO_URL:-https://github.com/ritesh/nova/releases/latest/download/nova-sdk.zip}"
+    ZIP_URL="${NOVA_REPO_URL:-https://raw.githubusercontent.com/SidhartGautam25/nova/main/dist/nova-sdk.zip}"
     echo "Downloading Nova SDK from: $ZIP_URL"
     TEMP_ZIP="/tmp/nova-sdk.zip"
     curl -fsSL "$ZIP_URL" -o "$TEMP_ZIP"

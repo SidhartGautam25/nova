@@ -42,18 +42,24 @@ You do **not** need to clone the repository or use npm. You can download and ins
 
 ### Method 1: One-Line Terminal Installer (Fastest)
 
-Open your terminal and run the one-line install command:
+Run the one-line install command for your operating system:
 
-- **Windows (PowerShell)**:
-  ```powershell
-  irm https://raw.githubusercontent.com/<USER>/<REPO>/main/install.ps1 | iex
-  ```
-- **macOS / Linux (Terminal)**:
-  ```bash
-  curl -fsSL https://raw.githubusercontent.com/<USER>/<REPO>/main/install.sh | bash
-  ```
+#### Windows (PowerShell):
+```powershell
+irm https://raw.githubusercontent.com/SidhartGautam25/nova/main/install.ps1 | iex
+```
 
-What this does automatically:
+#### Windows (Command Prompt / CMD):
+```cmd
+powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/SidhartGautam25/nova/main/install.ps1 | iex"
+```
+
+#### macOS / Linux (Terminal):
+```bash
+curl -fsSL https://raw.githubusercontent.com/SidhartGautam25/nova/main/install.sh | bash
+```
+
+**What this does automatically:**
 1. Downloads the latest clean `nova-sdk.zip`.
 2. Extracts it to `~/.nova` (`C:\Users\<username>\.nova` on Windows).
 3. Adds the `bin` directory to your persistent `PATH` and sets `NOVA_HOME`.
@@ -64,7 +70,7 @@ What this does automatically:
 ### Method 2: Direct ZIP Download
 
 If you prefer downloading manually:
-1. Go to the GitHub Releases page and download **`nova-sdk.zip`**.
+1. Go to the repository's `dist/` folder or GitHub Releases and download **`nova-sdk.zip`**.
 2. Unzip it to any folder on your computer (e.g. `C:\nova-sdk` or `D:\tools\nova-sdk`).
 3. Inside the unzipped folder:
    - **On Windows**: Double-click **`setup.bat`** (it automatically adds the folder to your User `PATH`).

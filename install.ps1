@@ -1,7 +1,9 @@
 # Nova Language & NVM Standalone Installer for Windows
-# Usage:
-#   irm https://raw.githubusercontent.com/<USER>/<REPO>/main/install.ps1 | iex
-# or run locally:
+# Usage in PowerShell:
+#   irm https://raw.githubusercontent.com/SidhartGautam25/nova/main/install.ps1 | iex
+# Usage in Command Prompt (CMD):
+#   powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/SidhartGautam25/nova/main/install.ps1 | iex"
+# Local execution:
 #   powershell -ExecutionPolicy Bypass -File install.ps1
 
 $ErrorActionPreference = "Stop"
@@ -18,7 +20,8 @@ $BinDir = Join-Path $InstallDir "bin"
 Write-Host "Installing Nova to: $InstallDir" -ForegroundColor Yellow
 
 # 2. Check source: local bundle or remote download
-$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path -ErrorAction SilentlyContinue
+$scriptPath = if ($MyInvocation -and $MyInvocation.MyCommand) { $MyInvocation.MyCommand.Path } else { $null }
+$ScriptDir = if ($scriptPath) { Split-Path -Parent $scriptPath } else { $null }
 $LocalZip = if ($ScriptDir) { Join-Path $ScriptDir "dist\nova-sdk.zip" } else { $null }
 
 if ($LocalZip -and (Test-Path $LocalZip)) {
@@ -29,11 +32,10 @@ if ($LocalZip -and (Test-Path $LocalZip)) {
     Expand-Archive -Path $LocalZip -DestinationPath $InstallDir -Force
 } else {
     # Remote download from GitHub repository
-    # Users can set $env:NOVA_REPO_URL or defaults to repo
     $ZipUrl = if ($env:NOVA_REPO_URL) {
         $env:NOVA_REPO_URL
     } else {
-        "https://github.com/ritesh/nova/releases/latest/download/nova-sdk.zip"
+        "https://raw.githubusercontent.com/SidhartGautam25/nova/main/dist/nova-sdk.zip"
     }
 
     $TempZip = Join-Path $env:TEMP "nova-sdk.zip"
@@ -47,8 +49,9 @@ if ($LocalZip -and (Test-Path $LocalZip)) {
         Expand-Archive -Path $TempZip -DestinationPath $InstallDir -Force
         Remove-Item -Force $TempZip -ErrorAction SilentlyContinue
     } catch {
-        Write-Warning "Could not download remote zip. Falling back to local files if present..."
-        if (Test-Path (Join-Path $ScriptDir "bin")) {
+        Write-Warning "Failed to download from primary URL: $($_.Exception.Message)"
+        if ($ScriptDir -and (Test-Path (Join-Path $ScriptDir "bin"))) {
+            Write-Host "Falling back to local directory..." -ForegroundColor Gray
             Copy-Item -Recurse -Force $ScriptDir $InstallDir
         } else {
             throw $_
@@ -85,4 +88,3 @@ Write-Host "----------------------------------------------" -ForegroundColor Gre
 Write-Host "Restart your terminal (or start using in this window) and run:" -ForegroundColor White
 Write-Host "  nova --help" -ForegroundColor Cyan
 Write-Host "  novac --help" -ForegroundColor Cyan
-
