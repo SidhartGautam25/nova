@@ -1,0 +1,11 @@
+// Declare variables
+let base = 100;
+let multiplier = 5;
+let bonus = 42;
+
+// Arithmetic expressions
+let total = (base + bonus) - multiplier;
+
+// Print string literals and integer values
+print("Computing total score:");
+print(total);
