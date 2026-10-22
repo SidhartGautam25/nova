@@ -36,26 +36,58 @@ Each stage is completely isolated and decoupled:
 ## 2. Nova Language Specification
 
 ### Supported Syntax
-- **Variable Declarations**: `let <name> = <expression>;`
+- **Variable Declarations**:
+  - `make int <name> = <expression>;` (16-bit integer, e.g. `make int x = 42;`)
+  - `make char <name> = '<character>';` (ASCII character, e.g. `make char ch = 'a';`)
+  - `make bool <name> = <true|false>;` (Boolean, e.g. `make bool ok = true;`)
+  - `int <name> = <expression>;`, `char <name> = ...;`, `bool <name> = ...;` (C-style syntax)
+  - `let <name> = <expression>;` (Dynamic syntax)
+- **Functions & Subroutines**:
+  - `make function <name>(<type> <param1>, <type> <param2>) : <return_type> { <body> }`
+  - Example: `make function isLetterA(char c) : bool { return c == 'a'; }`
+  - Example: `make function add(int a, int b) : int { return a + b; }`
+  - Void function: `make function greet(int id) : void { print(id); }`
+- **Return Statements**:
+  - `return <expression>;` (Returns value in `R0` and unwinds stack frame)
+  - `return;` (Returns `0` / void)
+- **Function Calls**:
+  - In expressions: `make int sum = add(10, 20);`
+  - As statements: `sayHello(1);`
+- **Conditionals & Branching**:
+  - `if (<condition>) { ... } else if (<condition>) { ... } else { ... }`
+  - Comparison operators: `==`, `!=`, `<`, `>`, `<=`, `>=`
+- **Loops & Control Flow**:
+  - `run <count> times { ... }` (Fixed iteration loop)
+  - `while (<condition>) { ... }` (Conditional loop)
+  - `break;` (Exit nearest loop)
+  - `continue;` (Skip to next iteration)
 - **Output Statements**: `print(<expression>);`
 - **Types**:
-  - `integer`: Signed 16-bit integer literals (range `0` to `32767` in literals).
+  - `int`: Signed 16-bit integer literals (range `0` to `32767` in literals).
+  - `char`: ASCII character literals (e.g. `'a'`, `'\n'`, `'\t'`, `'\0'`).
+  - `bool`: Boolean literals (`true` or `false`).
   - `string`: ASCII double-quoted strings (e.g. `"Hello, world!"`).
+  - `void`: Void return type for functions that do not return a value.
 - **Binary Arithmetic**: `+` (addition), `-` (subtraction).
 - **Grouping**: Parenthesized expressions `(a + b) - c`.
 - **Comments**: Single-line comments starting with `//`.
 
-### Example Program
+### Example Program with Functions & Recursion
 ```nova
-// Declare and compute
-let initial = 20;
-let delta = 22;
-let answer = initial + delta;
+// Recursive Sum function
+make function sum(int n) : int {
+    if (n <= 1) {
+        return 1;
+    }
+    return n + sum(n - 1);
+}
 
-// Output
-print("Result is:");
-print(answer);
-print(answer - 2);
+make int n = 5;
+make int result = sum(n);
+
+print("Recursive sum(5) = ");
+print(result);
+print("\n");
 ```
 
 ---
@@ -121,6 +153,72 @@ Translates the typed AST into NVM assembly using standard stack-allocated activa
    - Inlines `PRINT_INT` when integer printing is used. It extracts base-10 decimal digits via repeated subtraction and emits ASCII characters using `TRAP x21` (`OUT`).
    - Emits `.FILL` data for constants, string pointers, and `STACK_TOP`.
    - Terminates with `.END`.
+
+### 3.5 Calling Convention & The ABI (Application Binary Interface)
+
+Nova follows a strict calling convention aligned with the System V ABI (C) and JVM activation frames:
+
+| Role | Contract & Action | Machine Sequence |
+| :--- | :--- | :--- |
+| **Caller Site** | Evaluates arguments into designated registers (`R0` for arg 0, `R1` for arg 1, `R2` for arg 2). | Evaluates and loads arguments into `R0..R2`. |
+| **Call Step** | Emits link instruction saving return address into `R7`, then branches to function. | `LD R7, RET_ADDR_n`<br>`BRnzp FN_<name>`<br>`AFTER_CALL_n:` |
+| **Callee Prolog** | Saves caller's Return Address (`R7`) and Frame Pointer (`R5`) onto the stack. Sets new `FP = SP`. Spills incoming register arguments to its stack frame and reserves local slots. | `ADDI R6, #-1; STR R7, R6, #0`<br>`ADDI R6, #-1; STR R5, R6, #0`<br>`ADD R5, R6, #0`<br>`ADDI R6, #-1; STR R0, R6, #0` (param 0)<br>`ADDI R6, #-N` (locals) |
+| **Callee Body** | Accesses parameters and locals uniformly via Frame Pointer `R5` (`R5 - 1`, `R5 - 2`, etc.). | `LDR R0, R5, #-offset`<br>`STR R0, R5, #-offset` |
+| **Callee Epilog** | Places return value in `R0`. Resets `SP = FP` (collapsing all locals & params in $O(1)$). Restores caller's `R5` (FP) and caller's `R7` (Return Address). Jumps back. | `ADD R6, R5, #0`<br>`LDR R5, R6, #0; ADDI R6, #1`<br>`LDR R7, R6, #0; ADDI R6, #1`<br>`JMP R7` |
+| **Return Land** | Resumes execution in the caller immediately after the call point. Result is available in `R0`. | Caller's `R5` and `R6` are completely preserved. |
+
+#### Assembly ABI Concrete Implementation
+```asm
+; --- CALLER SITE ---
+; 1. Pass arguments into R0, R1
+LOADI R0, #15
+ADDI R6, #-1
+STR R0, R6, #0
+LOADI R0, #27
+AND R1, R0, R0
+LDR R0, R6, #0
+ADDI R6, #1
+
+; 2. Call function
+LD R7, RET_ADDR_0
+BRnzp FN_add
+AFTER_CALL_0:
+; Result is now in R0!
+
+; --- CALLEE SITE (FN_add) ---
+FN_add:
+    ; 1. Save Return Address and Old Frame Pointer
+    ADDI R6, #-1
+    STR R7, R6, #0      ; Stack: return address
+    ADDI R6, #-1
+    STR R5, R6, #0      ; Stack: old FP
+    ADD R5, R6, #0      ; FP = SP
+
+    ; 2. Save incoming parameters into stack frame
+    ADDI R6, #-1
+    STR R0, R6, #0      ; Param 0 (a) at R5 - 1
+    ADDI R6, #-1
+    STR R1, R6, #0      ; Param 1 (b) at R5 - 2
+
+    ; 3. Function Body...
+    LDR R0, R5, #-1     ; Load a
+    ADDI R6, #-1
+    STR R0, R6, #0
+    LDR R0, R5, #-2     ; Load b
+    AND R1, R0, R0
+    LDR R2, R6, #0
+    ADDI R6, #1
+    ADD R0, R2, R1      ; R0 = a + b
+
+    ; 4. Epilog & Return
+FN_EPILOG_add:
+    ADD R6, R5, #0      ; SP = FP (collapses parameters and locals)
+    LDR R5, R6, #0      ; Restore old FP
+    ADDI R6, #1
+    LDR R7, R6, #0      ; Restore return address
+    ADDI R6, #1
+    JMP R7              ; Return to caller!
+```
 
 ---
 

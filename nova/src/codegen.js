@@ -17,18 +17,24 @@ export function generateAssembly(analysis) {
   const symbols = analysis.symbols;
 
   const instructions = [];
+  const fnInstructions = [];
+  let targetInstructions = instructions;
   const data = [];
 
   let nextConstant = 0;
   let stringCounter=0;
 
   let printCallCounter = 0;
+  let callCounter = 0;
   let loopCounter = 0;
   let whileCounter = 0;
   let ifCounter = 0;
   let cmpCounter = 0;
   const loopStack = [];
   let needsIntegerPrinter = false;
+  let currentFunction = null;
+  const functionsToEmit = [];
+  let boolPrintCounter = 0;
 
   let zeroConstantLabel = null;
   let oneConstantLabel = null;
@@ -53,13 +59,16 @@ function emitIntegerPrintCall() {
   const id = printCallCounter++;
   const returnAddressLabel = `PRINT_INT_RETURN_${id}`;
   const returnLabel = `AFTER_PRINT_INT_${id}`;
+  const targetPtrLabel = `PRINT_INT_PTR_${id}`;
 
   emit(`LD R7, ${returnAddressLabel}`);
-  emit("BRnzp PRINT_INT");
+  emit(`LD R3, ${targetPtrLabel}`);
+  emit("JMP R3");
   emit(`${returnLabel}:`);
 
   data.push(
-    `${returnAddressLabel}: .FILL ${returnLabel}`
+    `${returnAddressLabel}: .FILL ${returnLabel}`,
+    `${targetPtrLabel}: .FILL PRINT_INT`
   );
 }
 
@@ -92,14 +101,14 @@ function emitIntegerPrintCall() {
 
   function emit(line) {
     if (currentSourceLine) {
-      instructions.push(`    ${line} ; line:${currentSourceLine}`);
+      targetInstructions.push(`    ${line} ; line:${currentSourceLine}`);
     } else {
-      instructions.push(`    ${line}`);
+      targetInstructions.push(`    ${line}`);
     }
   }
 
   function emitLabel(label) {
-    instructions.push(`${label}:`);
+    targetInstructions.push(`${label}:`);
   }
 
   function addData(label, directive) {
@@ -127,6 +136,47 @@ function emitIntegerPrintCall() {
   function popR2() {
     emit("LDR R2, R6, #0");
     emit("ADDI R6, #1");
+  }
+
+  function generateCallExpression(node) {
+    const numArgs = node.args.length;
+
+    if (numArgs === 1) {
+      generateExpression(node.args[0]); // R0 holds arg0
+    } else if (numArgs === 2) {
+      generateExpression(node.args[0]);
+      pushR0();
+      generateExpression(node.args[1]);
+      emit("AND R1, R0, R0"); // R1 holds arg1
+      emit("LDR R0, R6, #0"); // R0 holds arg0
+      emit("ADDI R6, #1");
+    } else if (numArgs === 3) {
+      generateExpression(node.args[0]);
+      pushR0();
+      generateExpression(node.args[1]);
+      pushR0();
+      generateExpression(node.args[2]);
+      emit("AND R2, R0, R0"); // R2 holds arg2
+      emit("LDR R1, R6, #0"); // R1 holds arg1
+      emit("ADDI R6, #1");
+      emit("LDR R0, R6, #0"); // R0 holds arg0
+      emit("ADDI R6, #1");
+    } else if (numArgs > 3) {
+      throw new CodegenError("Functions with more than 3 arguments are not supported yet", node);
+    }
+
+    const id = callCounter++;
+    const returnAddrLabel = `RET_ADDR_${id}`;
+    const afterCallLabel = `AFTER_CALL_${id}`;
+    const fnPtrLabel = `FN_PTR_${id}`;
+
+    emit(`LD R7, ${returnAddrLabel}`);
+    emit(`LD R3, ${fnPtrLabel}`);
+    emit("JMP R3");
+    emitLabel(afterCallLabel);
+
+    data.push(`${returnAddrLabel}: .FILL ${afterCallLabel}`);
+    data.push(`${fnPtrLabel}: .FILL FN_${node.callee}`);
   }
 
   function generateExpression(node) {
@@ -227,6 +277,22 @@ function emitIntegerPrintCall() {
         return;
       }
 
+      case "CallExpression": {
+        generateCallExpression(node);
+        return;
+      }
+
+      case "CharLiteral": {
+        const ascii = node.code ?? node.value.charCodeAt(0);
+        emit(`LOADI R0, #${ascii}`);
+        return;
+      }
+
+      case "BooleanLiteral": {
+        emit(`LOADI R0, #${node.value ? 1 : 0}`);
+        return;
+      }
+
       case "StringLiteral": {
   const pointerLabel = addStringLiteral(
     node.value,
@@ -253,7 +319,7 @@ function emitIntegerPrintCall() {
     try {
       switch (node.type) {
       case "VariableDeclaration": {
-        if (node.valueType !== "integer") {
+        if (node.valueType !== "integer" && node.valueType !== "character" && node.valueType !== "boolean") {
           throw new CodegenError(
             "String variable initialization is implemented in Chapter 7",
             node
@@ -272,6 +338,24 @@ function emitIntegerPrintCall() {
 
         if (node.expression.valueType === "string") {
           emit("TRAP x22");
+        } else if (node.expression.valueType === "character") {
+          emit("TRAP x21");
+        } else if (node.expression.valueType === "boolean") {
+          const id = boolPrintCounter++;
+          const falseLabel = `PRINT_BOOL_F_${id}`;
+          const endLabel = `PRINT_BOOL_END_${id}`;
+          const strTruePtr = addStringLiteral("true", data);
+          const strFalsePtr = addStringLiteral("false", data);
+
+          emit("ADDI R0, #0");
+          emit(`BRz ${falseLabel}`);
+          emit(`LD R0, ${strTruePtr}`);
+          emit("TRAP x22");
+          emit(`BRnzp ${endLabel}`);
+          emitLabel(falseLabel);
+          emit(`LD R0, ${strFalsePtr}`);
+          emit("TRAP x22");
+          emitLabel(endLabel);
         } else {
           emitIntegerPrintCall();
         }
@@ -401,6 +485,28 @@ function emitIntegerPrintCall() {
         return;
       }
 
+      case "ExpressionStatement": {
+        generateExpression(node.expression);
+        return;
+      }
+
+      case "ReturnStatement": {
+        if (node.argument) {
+          generateExpression(node.argument);
+        } else {
+          emit("LOADI R0, #0");
+        }
+        if (currentFunction) {
+          emit(`BRnzp FN_EPILOG_${currentFunction.name}`);
+        }
+        return;
+      }
+
+      case "FunctionDeclaration": {
+        functionsToEmit.push(node);
+        return;
+      }
+
         default:
           throw new CodegenError(
             `Unsupported statement '${node.type}'`,
@@ -410,6 +516,57 @@ function emitIntegerPrintCall() {
     } finally {
       currentSourceLine = prevLine;
     }
+  }
+
+  function generateFunction(fn) {
+    targetInstructions = fnInstructions;
+    currentFunction = fn;
+    const prevLine = currentSourceLine;
+    if (fn.line) currentSourceLine = fn.line;
+
+    emitLabel(`FN_${fn.name}`);
+
+    // 1. Callee Prolog: Save Return Address and Old Frame Pointer
+    emit("ADDI R6, #-1");
+    emit("STR R7, R6, #0");     // Stack: return address
+    emit("ADDI R6, #-1");
+    emit("STR R5, R6, #0");     // Stack: old FP
+    emit("ADD R5, R6, #0");     // FP = SP
+
+    // 2. Save incoming arguments onto stack frame (slots 0, 1, 2)
+    for (let i = 0; i < fn.params.length; i++) {
+      emit("ADDI R6, #-1");
+      emit(`STR R${i}, R6, #0`); // Param i at R5 - (i + 1)
+    }
+
+    // 3. Allocate local variables (beyond parameters)
+    const extraLocals = (fn.numLocals || 0) - fn.params.length;
+    if (extraLocals > 0) {
+      let rem = extraLocals;
+      while (rem > 0) {
+        const chunk = Math.min(rem, 32);
+        emit(`ADDI R6, #${-chunk}`);
+        rem -= chunk;
+      }
+    }
+
+    // 4. Function body statements
+    for (const stmt of fn.body) {
+      generateStatement(stmt);
+    }
+
+    // 5. Callee Epilog & Return
+    emitLabel(`FN_EPILOG_${fn.name}`);
+    emit("ADD R6, R5, #0");     // SP = FP
+    emit("LDR R5, R6, #0");     // Restore old FP
+    emit("ADDI R6, #1");
+    emit("LDR R7, R6, #0");     // Restore return address
+    emit("ADDI R6, #1");
+    emit("JMP R7");             // Return to caller!
+
+    currentFunction = null;
+    currentSourceLine = prevLine;
+    targetInstructions = instructions;
   }
 
   instructions.push(".ORIG x3000");
@@ -447,8 +604,16 @@ function emitIntegerPrintCall() {
 
   emit("TRAP x25");
 
+  // Emit all function subroutines now (populates fnInstructions and any function data)
+  for (const fn of functionsToEmit) {
+    generateFunction(fn);
+  }
+
   // Put user data right after TRAP x25
   instructions.push(...data);
+
+  // Put function subroutines right after data
+  instructions.push(...fnInstructions);
 
   if (needsIntegerPrinter) {
     instructions.push(...buildIntegerPrinter());

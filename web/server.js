@@ -108,6 +108,23 @@ print(count);
 print("\n");
 `,
   },
+  "functions": {
+    name: "Functions & ABI Subroutines (Recursion)",
+    code: `make function sum(int n) : int {
+    if (n <= 1) {
+        return 1;
+    }
+    return n + sum(n - 1);
+}
+
+make int n = 5;
+make int result = sum(n);
+
+print("Recursive sum of 1..5 = ");
+print(result);
+print("\\n");
+`,
+  },
 };
 
 function formatCC(cc) {

@@ -22,7 +22,8 @@ while (count < 5) {
 print("\n");
 
 make int r = 0;
-run 10 times {
+make int t = 10;
+run t times {
     r = r + 1;
     if (r == 3) {
         break;
@@ -30,4 +31,25 @@ run 10 times {
 }
 print("Loop broke at: ");
 print(r);
+print("\n");
+
+make function multiply(int a, int b) : int {
+    make int total = 0;
+    run b times {
+        total = total + a;
+    }
+    return total;
+}
+
+make int product = multiply(6, 7);
+print("Function multiply(6, 7) = ");
+print(product);
+print("\n");
+
+make char initial = 'N';
+make bool verified = true;
+print("Grade character: ");
+print(initial);
+print("\nVerified flag: ");
+print(verified);
 print("\n");

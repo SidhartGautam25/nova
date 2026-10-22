@@ -11,6 +11,13 @@ const KEYWORDS = new Map([
   ["while", "WHILE"],
   ["break", "BREAK"],
   ["continue", "CONTINUE"],
+  ["function", "FUNCTION"],
+  ["void", "VOID"],
+  ["return", "RETURN"],
+  ["char", "CHAR"],
+  ["bool", "BOOL"],
+  ["true", "TRUE"],
+  ["false", "FALSE"],
 ]);
 
 export class LexerError extends Error {
@@ -174,6 +181,39 @@ export function tokenize(source) {
     emit("STRING", value);
   }
 
+  function scanChar() {
+    if (isAtEnd() || peek() === "'") {
+      error("Empty character literal");
+    }
+
+    let charVal = advance();
+    if (charVal === "\\") {
+      if (isAtEnd()) {
+        error("Unterminated escape sequence in character literal");
+      }
+      const escaped = advance();
+      switch (escaped) {
+        case "'": charVal = "'"; break;
+        case "\\": charVal = "\\"; break;
+        case "n": charVal = "\n"; break;
+        case "r": charVal = "\r"; break;
+        case "t": charVal = "\t"; break;
+        case "0": charVal = "\0"; break;
+        default:
+          error(`Unknown escape sequence in character literal: \\${escaped}`);
+      }
+    }
+
+    if (isAtEnd() || peek() !== "'") {
+      error("Unterminated character literal");
+    }
+
+    // Consume the closing quote
+    advance();
+
+    emit("CHAR_LITERAL", charVal);
+  }
+
   function skipLineComment() {
     while (!isAtEnd() && peek() !== "\n") {
       advance();
@@ -244,6 +284,12 @@ export function tokenize(source) {
       case ")":
         emit("RIGHT_PAREN", ")");
         return;
+      case ",":
+        emit("COMMA", ",");
+        return;
+      case ":":
+        emit("COLON", ":");
+        return;
       case ";":
         emit("SEMICOLON", ";");
         return;
@@ -254,7 +300,10 @@ export function tokenize(source) {
         emit("RIGHT_BRACE", "}");
         return;
 
-      // Strings
+      // Characters and Strings
+      case "'":
+        scanChar();
+        return;
       case '"':
         scanString();
         return;

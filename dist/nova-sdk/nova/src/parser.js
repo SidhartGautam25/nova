@@ -85,12 +85,36 @@ export function parse(tokens) {
   function parseStatement() {
     if (match("MAKE")) {
       const makeToken = previous();
+      if (match("FUNCTION")) {
+        return parseFunctionDeclaration(makeToken);
+      }
+      if (match("INT")) {
+        return parseVariableDeclaration(makeToken, "int");
+      }
+      if (match("CHAR")) {
+        return parseVariableDeclaration(makeToken, "char");
+      }
+      if (match("BOOL")) {
+        return parseVariableDeclaration(makeToken, "bool");
+      }
       consume("INT", "Expected 'int' after 'make'");
       return parseVariableDeclaration(makeToken, "int");
     }
 
+    if (match("RETURN")) {
+      return parseReturnStatement(previous());
+    }
+
     if (match("INT")) {
       return parseVariableDeclaration(previous(), "int");
+    }
+
+    if (match("CHAR")) {
+      return parseVariableDeclaration(previous(), "char");
+    }
+
+    if (match("BOOL")) {
+      return parseVariableDeclaration(previous(), "bool");
     }
 
     if (match("LET")) {
@@ -126,12 +150,89 @@ export function parse(tokens) {
       if (nextToken && nextToken.type === "EQUAL") {
         return parseAssignmentStatement();
       }
+      if (nextToken && nextToken.type === "LEFT_PAREN") {
+        const callToken = peek();
+        const expr = parseExpression();
+        consume("SEMICOLON", "Expected ';' after function call");
+        return makeNode("ExpressionStatement", { expression: expr }, callToken);
+      }
     }
 
     throw new ParserError(
-      "Expected a statement (make int, int, let, print, run, while, if, break, continue, or assignment)",
+      "Expected a statement (make int, make function, int, let, print, run, while, if, break, continue, return, or assignment)",
       peek()
     );
+  }
+
+  function parseFunctionDeclaration(startToken) {
+    const nameToken = consume("IDENTIFIER", "Expected function name after 'make function'");
+    consume("LEFT_PAREN", "Expected '(' after function name");
+    const params = [];
+    if (!check("RIGHT_PAREN")) {
+      do {
+        let declaredType = "int";
+        if (match("INT")) {
+          declaredType = "int";
+        } else if (match("CHAR")) {
+          declaredType = "char";
+        } else if (match("BOOL")) {
+          declaredType = "bool";
+        } else {
+          consume("INT", "Expected parameter type ('int', 'char', or 'bool')");
+        }
+        const paramToken = consume("IDENTIFIER", "Expected parameter name");
+        params.push({
+          name: paramToken.value,
+          declaredType,
+          line: paramToken.line,
+          column: paramToken.column,
+        });
+      } while (match("COMMA"));
+    }
+    consume("RIGHT_PAREN", "Expected ')' after parameter list");
+
+    consume("COLON", "Expected ':' and return type after function parameters");
+    let returnType = "integer";
+    if (match("INT")) {
+      returnType = "integer";
+    } else if (match("CHAR")) {
+      returnType = "character";
+    } else if (match("BOOL")) {
+      returnType = "boolean";
+    } else if (match("VOID")) {
+      returnType = "void";
+    } else if (match("IDENTIFIER")) {
+      returnType = previous().value;
+    } else {
+      throw new ParserError("Expected return type (e.g. 'int', 'char', 'bool', or 'void') after ':'", peek());
+    }
+
+    consume("LEFT_BRACE", "Expected '{' before function body");
+    const body = [];
+    while (!check("RIGHT_BRACE") && !isAtEnd()) {
+      body.push(parseStatement());
+    }
+    consume("RIGHT_BRACE", "Expected '}' after function body");
+
+    return makeNode(
+      "FunctionDeclaration",
+      {
+        name: nameToken.value,
+        params,
+        body,
+        returnType,
+      },
+      nameToken
+    );
+  }
+
+  function parseReturnStatement(startToken) {
+    let argument = null;
+    if (!match("SEMICOLON")) {
+      argument = parseExpression();
+      consume("SEMICOLON", "Expected ';' after return expression");
+    }
+    return makeNode("ReturnStatement", { argument }, startToken);
   }
 
   function parseRunLoopStatement(startToken) {
@@ -445,8 +546,52 @@ function parsePrimary() {
     );
   }
 
+  if (match("CHAR_LITERAL")) {
+    const token = previous();
+
+    return makeNode(
+      "CharLiteral",
+      { value: token.value, code: token.value.charCodeAt(0) },
+      token
+    );
+  }
+
+  if (match("TRUE")) {
+    return makeNode(
+      "BooleanLiteral",
+      { value: true },
+      previous()
+    );
+  }
+
+  if (match("FALSE")) {
+    return makeNode(
+      "BooleanLiteral",
+      { value: false },
+      previous()
+    );
+  }
+
   if (match("IDENTIFIER")) {
     const token = previous();
+
+    if (match("LEFT_PAREN")) {
+      const args = [];
+      if (!check("RIGHT_PAREN")) {
+        do {
+          args.push(parseExpression());
+        } while (match("COMMA"));
+      }
+      consume("RIGHT_PAREN", "Expected ')' after argument list");
+      return makeNode(
+        "CallExpression",
+        {
+          callee: token.value,
+          args,
+        },
+        token
+      );
+    }
 
     return makeNode(
       "IdentifierExpression",

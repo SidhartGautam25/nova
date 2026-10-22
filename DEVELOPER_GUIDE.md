@@ -167,6 +167,49 @@ This generates `test_sample.asm`, allowing you to inspect the exact instructions
 
 ---
 
+## 4. Subroutines & ABI Calling Convention Guide
+
+Nova functions implement a formal C / System V ABI calling convention using NVM's 16-bit register file and downward-growing stack (`0xFF00`):
+
+### Language Syntax
+```nova
+make function add(int a, int b) : int {
+    return a + b;
+}
+
+make int res = add(10, 20);
+print(res);
+```
+
+### Architecture & Register Allocation in Function Calls
+- **`R0`–`R2`**: Parameter registers (caller evaluates arguments into `R0`, `R1`, `R2`).
+- **`R0`**: Return value register (callee leaves the final result in `R0`).
+- **`R5`**: **Frame Pointer (FP)**. Anchors the active function activation record. Parameters live at `R5 - 1`, `R5 - 2`; locals live at `R5 - 3`, etc.
+- **`R6`**: **Stack Pointer (SP)**. Points to the current top of stack.
+- **`R7`**: **Link Register**. Holds the return landing address (`JMP R7`).
+
+### Callee Contract (Prolog & Epilog)
+```asm
+FN_myFunction:
+    ; 1. Prolog: Save Link Register & Old FP
+    ADDI R6, #-1; STR R7, R6, #0   ; Stack: return address
+    ADDI R6, #-1; STR R5, R6, #0   ; Stack: old FP
+    ADD R5, R6, #0                 ; FP = SP
+    ; 2. Spill register arguments to local frame
+    ADDI R6, #-1; STR R0, R6, #0   ; Param 0 at R5 - 1
+    ; 3. Allocate local variables
+    ADDI R6, #-numLocals
+    ; ... Function body ...
+    ; 4. Epilog & Return
+FN_EPILOG_myFunction:
+    ADD R6, R5, #0                 ; Collapse frame (SP = FP)
+    LDR R5, R6, #0; ADDI R6, #1    ; Restore caller's FP
+    LDR R7, R6, #0; ADDI R6, #1    ; Restore return address
+    JMP R7                         ; Return to caller!
+```
+
+---
+
 ## 5. Running and Writing Automated Tests
 
 Automated tests use Node.js built-in test runner (`node:test`).

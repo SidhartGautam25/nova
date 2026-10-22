@@ -251,8 +251,8 @@ To build this systematically without breaking existing functionality, tackle eac
 [x] Milestone 1: Stack Frame Architecture
     ├── Define R5 (FP) and R6 (SP) conventions
     └── Convert VariableDeclaration & IdentifierExpression from static VAR_n to LDR/STR relative to R5
-[ ] Milestone 2: Function Call Subroutines & ABI
-    ├── Add function declaration syntax: make fun name(arg1, arg2) { ... }
+[x] Milestone 2: Function Call Subroutines & ABI
+    ├── Add function declaration syntax: make function name(int x, int y) : int { ... }
     ├── Implement function calls with return address tracking via R7
     └── Support recursive function execution on the call stack
 [ ] Milestone 3: Pointers & Address Operators

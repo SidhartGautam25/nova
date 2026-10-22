@@ -327,3 +327,267 @@ test("preserves Frame Pointer (R5) and Stack Pointer (R6) across execution lifec
   assert.equal(output.trim(), "100300");
 });
 
+test("supports subroutine definition, argument passing, and return value", () => {
+  const source = `
+    make function add(int a, int b) : int {
+        return a + b;
+    }
+
+    make int x = add(12, 30);
+    print(x);
+  `;
+  const output = runSource(source);
+  assert.equal(output.trim(), "42");
+});
+
+test("supports 'make function' syntax with local variables inside function", () => {
+  const source = `
+    make function compute(int x) : int {
+        make int bonus = 10;
+        return x + bonus;
+    }
+
+    make int ans = compute(50);
+    print(ans);
+  `;
+  const output = runSource(source);
+  assert.equal(output.trim(), "60");
+});
+
+test("supports functions with 3 arguments", () => {
+  const source = `
+    make function addThree(int a, int b, int c) : int {
+        return a + b + c;
+    }
+
+    make int total = addThree(100, 20, 5);
+    print(total);
+  `;
+  const output = runSource(source);
+  assert.equal(output.trim(), "125");
+});
+
+test("supports void function called as a statement", () => {
+  const source = `
+    make function sayHello(int n) : void {
+        print("Hello ");
+        print(n);
+        print(" ");
+    }
+
+    sayHello(1);
+    sayHello(2);
+  `;
+  const output = runSource(source);
+  assert.equal(output.trim(), "Hello 1 Hello 2");
+});
+
+test("supports early return and conditionals inside function", () => {
+  const source = `
+    make function max(int a, int b) : int {
+        if (a > b) {
+            return a;
+        }
+        return b;
+    }
+
+    print(max(25, 10));
+    print(" ");
+    print(max(7, 99));
+  `;
+  const output = runSource(source);
+  assert.equal(output.trim(), "25 99");
+});
+
+test("supports nested function calls (composition)", () => {
+  const source = `
+    make function double(int x) : int {
+        return x + x;
+    }
+
+    make function quad(int x) : int {
+        return double(double(x));
+    }
+
+    print(quad(6));
+  `;
+  const output = runSource(source);
+  assert.equal(output.trim(), "24");
+});
+
+test("supports recursive function calls on the call stack", () => {
+  const source = `
+    make function sum(int n) : int {
+        if (n <= 1) {
+            return 1;
+        }
+        return n + sum(n - 1);
+    }
+
+    make int res = sum(5);
+    print(res);
+  `;
+  const output = runSource(source);
+  assert.equal(output.trim(), "15");
+});
+
+test("rejects function call with incorrect number of arguments", () => {
+  const source = `
+    make function add(int a, int b) : int {
+        return a + b;
+    }
+    make int res = add(10);
+  `;
+  assert.throws(
+    () => compile(source),
+    /Function 'add' expects 2 arguments but got 1/
+  );
+});
+
+test("rejects 'return' statement outside of a function", () => {
+  const source = `
+    make int x = 10;
+    return x;
+  `;
+  assert.throws(
+    () => compile(source),
+    /'return' can only be used inside a function/
+  );
+});
+
+test("rejects duplicate function declaration", () => {
+  const source = `
+    make function foo() : int { return 1; }
+    make function foo() : int { return 2; }
+  `;
+  assert.throws(
+    () => compile(source),
+    /Function 'foo' is already declared/
+  );
+});
+
+test("rejects old 'fun' syntax when 'make function' is strictly required", () => {
+  const source = `
+    fun foo(a, b) { return a + b; }
+  `;
+  assert.throws(
+    () => compile(source),
+    /Expected a statement/
+  );
+});
+
+test("supports 'make char ch = 'a';' and printing character", () => {
+  const source = `
+    make char ch1 = 'N';
+    make char ch2 = 'V';
+    make char ch3 = 'M';
+    print(ch1);
+    print(ch2);
+    print(ch3);
+  `;
+  const output = runSource(source);
+  assert.equal(output, "NVM");
+});
+
+test("supports character escape sequences '\\n', '\\t', '\\0'", () => {
+  const source = `
+    make char a = 'X';
+    make char newline = '\\n';
+    make char b = 'Y';
+    print(a);
+    print(newline);
+    print(b);
+  `;
+  const output = runSource(source);
+  assert.equal(output, "X\nY");
+});
+
+test("supports 'make bool result = false;' and 'make bool flag = true;' with boolean printing", () => {
+  const source = `
+    make bool flagTrue = true;
+    make bool flagFalse = false;
+    print(flagTrue);
+    print(" ");
+    print(flagFalse);
+  `;
+  const output = runSource(source);
+  assert.equal(output, "true false");
+});
+
+test("supports conditionals with boolean variables", () => {
+  const source = `
+    make bool isReady = true;
+    if (isReady) {
+        print("Ready!");
+    } else {
+        print("Waiting...");
+    }
+  `;
+  const output = runSource(source);
+  assert.equal(output, "Ready!");
+});
+
+test("supports character comparisons", () => {
+  const source = `
+    make char first = 'a';
+    make char second = 'z';
+    make bool isLess = first < second;
+    print(isLess);
+  `;
+  const output = runSource(source);
+  assert.equal(output, "true");
+});
+
+test("supports boolean comparisons with == and !=", () => {
+  const source = `
+    make bool a = true;
+    make bool b = false;
+    make bool match = (a == b);
+    make bool diff = (a != b);
+    print(match);
+    print(" ");
+    print(diff);
+  `;
+  const output = runSource(source);
+  assert.equal(output, "false true");
+});
+
+test("supports functions with char and bool parameters and return types", () => {
+  const source = `
+    make function isLetterA(char c) : bool {
+        if (c == 'A') {
+            return true;
+        }
+        return false;
+    }
+
+    make bool r1 = isLetterA('A');
+    make bool r2 = isLetterA('B');
+    print(r1);
+    print(" ");
+    print(r2);
+  `;
+  const output = runSource(source);
+  assert.equal(output, "true false");
+});
+
+test("enforces type checking for char variables", () => {
+  const source = `
+    make char ch = 100;
+  `;
+  assert.throws(
+    () => compile(source),
+    /Cannot assign integer to char variable 'ch'/
+  );
+});
+
+test("enforces type checking for bool variables", () => {
+  const source = `
+    make bool flag = "true";
+  `;
+  assert.throws(
+    () => compile(source),
+    /Cannot assign string to bool variable 'flag'/
+  );
+});
+

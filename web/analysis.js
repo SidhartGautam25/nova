@@ -102,6 +102,14 @@ export function buildSymbolMap(compilationSymbols, assembledSymbols, words, orig
         role = "Loop exit target";
       } else if (label.startsWith("PRINT_INT")) {
         role = "Integer print subroutine";
+      } else if (label.startsWith("FN_EPILOG_")) {
+        role = `Subroutine epilog & return (${label.replace("FN_EPILOG_", "")})`;
+      } else if (label.startsWith("FN_")) {
+        role = `Subroutine entry point: ${label.replace("FN_", "")}()`;
+      } else if (label.startsWith("RET_ADDR_")) {
+        role = `Subroutine call return target (${label})`;
+      } else if (label.startsWith("AFTER_CALL_")) {
+        role = "Subroutine return landing site";
       }
 
       map[address] = {

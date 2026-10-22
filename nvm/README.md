@@ -16,27 +16,46 @@ NVM is a 16-bit word-addressable RISC virtual machine and execution environment 
 | **Endianness** | Big-Endian | High byte first in file format and data view serialization. |
 | **Stack Convention** | Downward-growing from `0xFF00` | Register `R6` serves as Stack Pointer (SP). Register `R5` serves as Frame Pointer (FP) anchoring activation records. |
 
-### Activation Record & Stack Frame Layout
-NVM uses standard C / RISC call stack activation records:
+### Activation Record & Stack Frame Layout (The ABI)
+NVM implements standard C / System V ABI call stack activation records:
 ```
 High Memory (0xFF00)
     ┌──────────────────────────┐
     │ Caller's Stack Frame     │
     ├──────────────────────────┤
+    │ Return Address (R7)      │  (Caller's return address)
+    ├──────────────────────────┤
     │ Saved Frame Pointer (R5) │ <── Current Frame Pointer (R5)
     ├──────────────────────────┤
-    │ Local Variable 0         │  (R5 - 1)
+    │ Saved Parameter 0        │  (R5 - 1)
     ├──────────────────────────┤
-    │ Local Variable 1         │  (R5 - 2)
+    │ Saved Parameter 1        │  (R5 - 2)
     ├──────────────────────────┤
-    │ Temporary Evaluation     │
+    │ Local Variable 0         │  (R5 - 3)
+    ├──────────────────────────┤
+    │ Expression Temporaries   │
     ├──────────────────────────┤
     │ ...                      │ <── Current Stack Pointer (R6)
 Low Memory (grows downwards)
 ```
-- **Prolog**: `ADDI R6, #-1; STR R5, R6, #0; ADD R5, R6, #0; ADDI R6, #-N`
-- **Variable Access**: `LDR R0, R5, #-1` (read local 0), `STR R0, R5, #-1` (write local 0)
-- **Epilog**: `ADD R6, R5, #0; LDR R5, R6, #0; ADDI R6, #1`
+
+#### Calling Convention Contract
+1. **Caller Responsibility**:
+   - Evaluates arguments into designated registers (`R0`–`R2`).
+   - Loads return landing address into `R7` (`LD R7, RET_ADDR`).
+   - Jumps to subroutine (`BRnzp FN_<name>`).
+2. **Callee Prolog**:
+   - Saves `R7` (Return Address) on stack: `ADDI R6, #-1; STR R7, R6, #0`.
+   - Saves `R5` (Caller's FP) on stack: `ADDI R6, #-1; STR R5, R6, #0`.
+   - Anchors new frame pointer: `ADD R5, R6, #0`.
+   - Saves register arguments onto stack frame: `ADDI R6, #-1; STR R0, R6, #0` (`R5 - 1`).
+   - Allocates remaining local variable slots: `ADDI R6, #-numLocals`.
+3. **Callee Epilog & Return**:
+   - Places return value in `R0`.
+   - Resets stack pointer: `ADD R6, R5, #0` (collapsing all locals & parameters in $O(1)$).
+   - Restores old Frame Pointer: `LDR R5, R6, #0; ADDI R6, #1`.
+   - Restores Return Address: `LDR R7, R6, #0; ADDI R6, #1`.
+   - Returns to caller: `JMP R7`.
 
 ---
 
