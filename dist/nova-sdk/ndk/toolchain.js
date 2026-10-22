@@ -1,6 +1,5 @@
-import { compile } from "./compiler.js";
-import { assemble } from "./assembler.js";
-import { encodeExecutable } from "./executable.js";
+import { compile } from "../nova/src/index.js";
+import { assemble, encodeExecutable } from "../nvm/src/index.js";
 
 export function build(source) {
   const compilation = compile(source);
@@ -18,4 +17,3 @@ export function build(source) {
     executable,
   };
 }
-

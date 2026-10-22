@@ -1,8 +1,6 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve, basename, extname } from "node:path";
-import { build } from "./toolchain.js";
-import { VirtualMachine } from "./vm.js";
-import { loadExecutable } from "./loader.js";
+import { build, VirtualMachine, loadExecutable } from "./index.js";
 
 function parseBuildArguments(args) {
   let input = null;

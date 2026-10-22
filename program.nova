@@ -31,28 +31,3 @@ run 10 times {
 print("Loop broke at: ");
 print(r);
 print("\n");
-
-make int count = 0;
-while (count < 5) {
-    count = count + 1;
-    if (count == 2) {
-        continue;
-    }
-    if (count == 4) {
-        break;
-    }
-    print(count);
-}
-print("\n");
-
-make int r = 0;
-run 10 times {
-    r = r + 1;
-    if (r == 3) {
-        break;
-    }
-}
-print("Loop broke at: ");
-print(r);
-print("\n");
-

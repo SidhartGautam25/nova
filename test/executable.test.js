@@ -6,7 +6,7 @@ import {
   decodeExecutable,
   ExecutableFormatError,
   EXECUTABLE_HEADER_SIZE,
-} from "../ndk/executable.js";
+} from "../ndk/index.js";
 
 test("round-trips an executable", () => {
   const input = {

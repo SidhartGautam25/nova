@@ -1,7 +1,6 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve, basename, extname } from "node:path";
-import { build } from "./toolchain.js";
-import { compile } from "./compiler.js";
+import { build, compile } from "./index.js";
 
 const VERSION = "1.0.0";
 

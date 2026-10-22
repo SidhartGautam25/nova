@@ -1,8 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { resolve, extname } from "node:path";
-import { build } from "./toolchain.js";
-import { VirtualMachine } from "./vm.js";
-import { loadExecutable } from "./loader.js";
+import { build, VirtualMachine, loadExecutable } from "./index.js";
 
 const VERSION = "1.0.0";
 

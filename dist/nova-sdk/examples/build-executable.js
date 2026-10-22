@@ -1,7 +1,6 @@
 import { readFile, writeFile } from "node:fs/promises";
 
-import { assemble } from "../ndk/assembler.js";
-import { encodeExecutable } from "../ndk/executable.js";
+import { assemble, encodeExecutable } from "../ndk/index.js";
 
 const source = await readFile(
   "program.asm",

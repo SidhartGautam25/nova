@@ -1,9 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { compile } from "../ndk/compiler.js";
-import { assemble } from "../ndk/assembler.js";
-import { VirtualMachine } from "../ndk/vm.js";
+import { compile, assemble, VirtualMachine } from "../ndk/index.js";
 
 function runSource(source) {
   const { assembly } = compile(source);

@@ -118,21 +118,13 @@ Returning intermediate artifacts allows test harnesses, debuggers, and IDEs to i
 
 ## 4. Unified Module Surface
 
-The `ndk/` directory re-exports the public APIs of both Nova and NVM, offering a clean, unified surface for consumers:
+The `ndk/index.js` entry point re-exports the public APIs of both Nova and NVM, offering a clean, unified surface for consumers:
 
-| Re-Export File | Upstream Module | Primary Exports |
+| Entry Point | Source Modules | Primary Exports |
 | :--- | :--- | :--- |
-| `ndk/compiler.js` | `nova/src/compiler.js` | `compile(source)` |
-| `ndk/assembler.js` | `nvm/src/assembler.js` | `assemble(source)`, `AssemblyError` |
-| `ndk/executable.js` | `nvm/src/executable.js` | `encodeExecutable()`, `decodeExecutable()`, `ExecutableFormatError` |
-| `ndk/vm.js` | `nvm/src/vm.js` | `VirtualMachine` class |
-| `ndk/loader.js` | `nvm/src/loader.js` | `loadExecutable(vm, bytes)` |
-| `ndk/cpu.js` | `nvm/src/cpu.js` | `CPU` class, `FLAG`, `getConditionCode` |
-| `ndk/isa.js` | `nvm/src/isa.js` | `OPCODE`, `decodeInstruction`, encoder functions |
-| `ndk/memory.js` | `nvm/src/memory.js` | `Memory` class, `MemoryFault` |
-| `ndk/traps.js` | `nvm/src/traps.js` | `TrapHandler`, `TRAP_VECTOR`, `TrapError` |
-| `ndk/toolchain.js` | *(Internal)* | `build(source)` |
-| `ndk/cli.js` | *(Internal)* | Command-line executable script |
+| `ndk/index.js` | `nova/src/index.js` + `nvm/src/index.js` + `toolchain.js` | `build`, `compile`, `assemble`, `VirtualMachine`, `encodeExecutable`, `decodeExecutable`, `loadExecutable`, `CPU`, `Memory`, `ISA` |
+| `nova/src/index.js` | `lexer`, `parser`, `semantic`, `codegen`, `compiler` | `compile`, `tokenize`, `parse`, `analyze`, `generateAssembly` |
+| `nvm/src/index.js` | `assembler`, `executable`, `loader`, `vm`, `cpu`, `memory`, `traps`, `isa` | `VirtualMachine`, `assemble`, `encodeExecutable`, `decodeExecutable`, `loadExecutable`, `CPU`, `Memory`, `TrapHandler`, `OPCODE` |
 
 ---
 
@@ -141,14 +133,13 @@ The `ndk/` directory re-exports the public APIs of both Nova and NVM, offering a
 Here is how an external host application or test suite can embed Nova execution:
 
 ```javascript
-import { build } from "./ndk/toolchain.js";
-import { VirtualMachine } from "./ndk/vm.js";
-import { loadExecutable } from "./ndk/loader.js";
+import { build, VirtualMachine, loadExecutable } from "./ndk/index.js";
 
 // 1. Compile and build executable bytes
 const { executable } = build(`
-  let greeting = "Hello from Nova!";
-  print(greeting);
+  make int a = 20;
+  make int b = 22;
+  print(a + b);
 `);
 
 // 2. Set up the VM (capture output to a string buffer)

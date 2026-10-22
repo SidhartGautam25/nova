@@ -1,7 +1,6 @@
 import { readFile } from "node:fs/promises";
 
-import { VirtualMachine } from "../ndk/vm.js";
-import { loadExecutable } from "../ndk/loader.js";
+import { VirtualMachine, loadExecutable } from "../ndk/index.js";
 
 const bytes = await readFile("program.nvm");
 
