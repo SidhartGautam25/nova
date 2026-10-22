@@ -89,8 +89,14 @@ function emitIntegerPrintCall() {
   return pointerLabel;
 }
 
+  let currentSourceLine = null;
+
   function emit(line) {
-    instructions.push(`    ${line}`);
+    if (currentSourceLine) {
+      instructions.push(`    ${line} ; line:${currentSourceLine}`);
+    } else {
+      instructions.push(`    ${line}`);
+    }
   }
 
   function emitLabel(label) {
@@ -245,7 +251,12 @@ function emitIntegerPrintCall() {
   }
 
   function generateStatement(node) {
-    switch (node.type) {
+    const prevLine = currentSourceLine;
+    if (node?.line) {
+      currentSourceLine = node.line;
+    }
+    try {
+      switch (node.type) {
       case "VariableDeclaration": {
         if (node.valueType !== "integer") {
           throw new CodegenError(
@@ -393,11 +404,14 @@ function emitIntegerPrintCall() {
         return;
       }
 
-      default:
-        throw new CodegenError(
-          `Unsupported statement '${node.type}'`,
-          node
-        );
+        default:
+          throw new CodegenError(
+            `Unsupported statement '${node.type}'`,
+            node
+          );
+      }
+    } finally {
+      currentSourceLine = prevLine;
     }
   }
 

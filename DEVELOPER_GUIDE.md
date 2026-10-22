@@ -249,6 +249,7 @@ git push
 | **Inspect Tokens** | `node ndk/novac-cli.js program.nova --tokens` |
 | **Inspect AST** | `node ndk/novac-cli.js program.nova --ast` |
 | **Inspect Assembly (`.asm`)** | `node ndk/novac-cli.js program.nova -S` |
+| **Start Web Visualizer UI** | `npm run web` (or `node web/server.js`) |
 | **Run all tests** | `npm test` |
 | **Package SDK ZIP** | `node scripts/package-sdk.js` |
 

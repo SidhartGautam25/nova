@@ -1,6 +1,7 @@
 
+import { WORD_MASK } from "./isa.js";
+
 export const MEMORY_SIZE = 1 << 16;
-export const WORD_MASK = 0xFFFF;
 
 export class MemoryFault extends Error {
   constructor(address, operation) {

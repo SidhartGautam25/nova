@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nova &amp; NVM Architecture Studio &amp; Visualizer</title>
+  <link rel="stylesheet" href="/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- Header Bar -->
+  <header class="app-header">
+    <div class="logo-group">
+      <span class="logo-icon">⚡</span>
+      <div class="logo-text">
+        <h1>Nova &amp; NVM Architecture Studio</h1>
+        <span class="subtitle">Interactive 16-Bit Systems Visualizer, Bitfield Decoder &amp; Micro-Architecture Stepper</span>
+      </div>
+    </div>
+
+    <div class="header-controls">
+      <div class="preset-group">
+        <label for="preset-select">Preset Program:</label>
+        <select id="preset-select" class="preset-dropdown">
+          <option value="variables">Variables &amp; Arithmetic</option>
+          <option value="conditionals">Conditionals (if / else if / else)</option>
+          <option value="run-loop">Run Loop (run x times)</option>
+          <option value="while-loop">While Loop (break &amp; continue)</option>
+          <option value="nested-loops">Nested Loops</option>
+          <option value="hello">Hello World</option>
+        </select>
+      </div>
+
+      <button id="compile-btn" class="btn btn-primary">
+        <span class="btn-icon">⚙️</span> Compile &amp; Run
+      </button>
+
+      <div id="status-pill" class="status-pill ready">
+        <span class="status-dot"></span>
+        <span id="status-text">Ready</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Scrollable Studio Layout -->
+  <main class="main-container" id="main-container">
+
+    <!-- LEFT COLUMN: Source Code & Compiler Pipeline -->
+    <div class="column left-column">
+
+      <!-- Card 1: Source Editor -->
+      <section class="card editor-card" id="card-editor">
+        <div class="card-header">
+          <div class="header-title-group">
+            <span class="card-title">📝 Nova Source Code (<span class="code-font">.nova</span>)</span>
+            <span class="badge badge-accent">Source-to-CPU Sync Active</span>
+          </div>
+          <div class="card-actions">
+            <span id="active-line-indicator" class="active-line-tag">Line: ---</span>
+            <button class="btn-expand" data-card="card-editor" title="Toggle Fullscreen">⛶</button>
+          </div>
+        </div>
+        <div class="editor-wrapper">
+          <div class="line-numbers" id="line-numbers">1</div>
+          <textarea id="code-editor" spellcheck="false" placeholder="Write your Nova program here..."></textarea>
+        </div>
+      </section>
+
+      <!-- Card 2: Compiler Pipeline Stages -->
+      <section class="card pipeline-card" id="card-pipeline">
+        <div class="card-header pipeline-header">
+          <div class="header-title-group">
+            <span class="card-title">🔬 Compiler Pipeline Inspector</span>
+          </div>
+          <div class="card-actions">
+            <div class="pipeline-tabs" id="pipeline-tabs">
+              <button class="tab-btn active" data-tab="tab-tokens">1. Tokens</button>
+              <button class="tab-btn" data-tab="tab-ast">2. AST</button>
+              <button class="tab-btn" data-tab="tab-symbols">3. Symbols</button>
+              <button class="tab-btn" data-tab="tab-asm">4. Assembly</button>
+              <button class="tab-btn" data-tab="tab-binary">5. Machine Words</button>
+            </div>
+            <button class="btn-expand" data-card="card-pipeline" title="Toggle Fullscreen">⛶</button>
+          </div>
+        </div>
+
+        <div class="pipeline-content">
+          <!-- 1. Tokens Tab -->
+          <div class="tab-pane active" id="tab-tokens">
+            <div class="tab-meta" id="tokens-meta">Total Tokens: 0</div>
+            <div class="table-scroll-container">
+              <table class="data-table" id="tokens-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Token Type</th>
+                    <th>Raw Value</th>
+                    <th>Position (Line:Col)</th>
+                  </tr>
+                </thead>
+                <tbody id="tokens-tbody">
+                  <tr><td colspan="4" class="empty-state">Compile a program to view token stream.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 2. AST Tab -->
+          <div class="tab-pane" id="tab-ast">
+            <div class="tab-meta" id="ast-meta">Abstract Syntax Tree (AST) Hierarchy</div>
+            <pre class="code-view json-view" id="ast-view">// AST will render here</pre>
+          </div>
+
+          <!-- 3. Symbols Tab -->
+          <div class="tab-pane" id="tab-symbols">
+            <div class="tab-meta" id="symbols-meta">Symbol Table &amp; Memory Slot Allocation</div>
+            <div class="table-scroll-container">
+              <table class="data-table" id="symbols-table">
+                <thead>
+                  <tr>
+                    <th>Variable Name</th>
+                    <th>Memory Slot</th>
+                    <th>Data Type</th>
+                    <th>Declared Line</th>
+                  </tr>
+                </thead>
+                <tbody id="symbols-tbody">
+                  <tr><td colspan="4" class="empty-state">No symbols registered yet.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 4. Assembly Tab -->
+          <div class="tab-pane" id="tab-asm">
+            <div class="tab-meta" id="asm-meta">Emitted LC-3 Symbolic Assembly (.asm) with Source Line Annotations</div>
+            <pre class="code-view asm-view" id="asm-view">// Assembly will render here</pre>
+          </div>
+
+          <!-- 5. Machine Words Tab -->
+          <div class="tab-pane" id="tab-binary">
+            <div class="tab-meta" id="binary-meta">Binary Machine Words &amp; Memory Layout (.nvm / NVM1)</div>
+            <div class="table-scroll-container">
+              <table class="data-table binary-table" id="binary-table">
+                <thead>
+                  <tr>
+                    <th>Address</th>
+                    <th>Word (Hex)</th>
+                    <th>Symbol / Label</th>
+                    <th>Decimal</th>
+                    <th>Disassembly / Meaning</th>
+                  </tr>
+                </thead>
+                <tbody id="binary-tbody">
+                  <tr><td colspan="5" class="empty-state">Compile code to see machine words.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Card 8: Terminal Output -->
+      <section class="card terminal-card" id="card-terminal">
+        <div class="card-header terminal-header">
+          <div class="header-title-group">
+            <span class="card-title">📟 NVM Virtual Terminal (<span class="code-font">stdout</span> via TRAP x21/x22)</span>
+          </div>
+          <div class="card-actions">
+            <button id="clear-term-btn" class="btn btn-sm btn-ghost">Clear</button>
+            <button class="btn-expand" data-card="card-terminal" title="Toggle Fullscreen">⛶</button>
+          </div>
+        </div>
+        <div class="terminal-screen" id="terminal-screen">
+          <span class="terminal-prompt">&gt;&nbsp;</span><span id="terminal-output">Program ready.</span>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- RIGHT COLUMN: CPU, Registers, Bitfield, Stack & Memory -->
+    <div class="column right-column">
+
+      <!-- Card 3: Step Controls Bar -->
+      <section class="card controls-card" id="card-controls">
+        <div class="controls-row">
+          <div class="step-buttons">
+            <button id="btn-reset" class="btn btn-secondary" title="Reset to start">
+              ⏮ Reset
+            </button>
+            <button id="btn-prev" class="btn btn-secondary" title="Step Back">
+              ◀ Step Back
+            </button>
+            <button id="btn-next" class="btn btn-primary" title="Next Instruction Step">
+              ▶ Next Step
+            </button>
+            <button id="btn-play" class="btn btn-success" title="Auto-Play Execution">
+              ▶▶ Auto Play
+            </button>
+          </div>
+
+          <div class="speed-group">
+            <label for="speed-select">Speed:</label>
+            <select id="speed-select" class="speed-dropdown">
+              <option value="600">Slow (600ms)</option>
+              <option value="250" selected>Normal (250ms)</option>
+              <option value="60">Fast (60ms)</option>
+              <option value="5">Turbo (5ms)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="progress-bar-container">
+          <div class="progress-info">
+            <span id="step-counter-text">Step: <strong>0</strong> / 0</span>
+            <span id="exec-status-badge" class="badge badge-neutral">Ready</span>
+          </div>
+          <div class="progress-track">
+            <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Card 4: Current Instruction, Bitfield Breakdown & Data-Path -->
+      <section class="card instruction-card" id="card-instruction">
+        <div class="card-header instruction-header">
+          <div class="header-title-group">
+            <div class="current-pc-badge">
+              <span class="label">PC:</span>
+              <span id="current-pc-val" class="value code-font">0x3000</span>
+            </div>
+            <div class="current-inst-badge">
+              <span class="label">INSTRUCTION:</span>
+              <span id="current-inst-val" class="value code-font">---</span>
+            </div>
+          </div>
+          <div class="card-actions">
+            <button class="btn-expand" data-card="card-instruction" title="Toggle Fullscreen">⛶</button>
+          </div>
+        </div>
+
+        <!-- 16-Bit Instruction Bitfield Breakdown Box -->
+        <div class="bitfield-section">
+          <div class="bitfield-label-row">
+            <span class="bitfield-title">🔍 16-Bit Instruction Register (IR) Bitfield Architecture:</span>
+            <span id="bitfield-raw-hex" class="code-font" style="color: var(--accent-cyan);">0x0000</span>
+          </div>
+          <div class="bitfield-grid" id="bitfield-grid">
+            <!-- Dynamically populated bitfield cells -->
+          </div>
+        </div>
+
+        <!-- 4-Stage Micro-Architecture Data-Path Evaluation Flow -->
+        <div class="datapath-section">
+          <div class="datapath-header">⚙️ Micro-Architecture CPU Data-Path Flow:</div>
+          <div class="datapath-flow">
+            <div class="datapath-step" id="dp-fetch">
+              <span class="dp-tag">1. Fetch</span>
+              <span class="dp-val" id="dp-fetch-val">PC ➔ MAR, MDR ➔ Mem[PC]</span>
+            </div>
+            <div class="datapath-step" id="dp-decode">
+              <span class="dp-tag">2. Decode</span>
+              <span class="dp-val" id="dp-decode-val">IR = Opcode &amp; Operands</span>
+            </div>
+            <div class="datapath-step" id="dp-addr">
+              <span class="dp-tag">3. Address Eval</span>
+              <span class="dp-val" id="dp-addr-val">Target Address / Immediate</span>
+            </div>
+            <div class="datapath-step" id="dp-exec">
+              <span class="dp-tag">4. Execute &amp; Store</span>
+              <span class="dp-val" id="dp-exec-val">ALU / Register / Memory Write</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Explanation Summary -->
+        <div class="explanation-body">
+          <div class="explanation-icon">💡</div>
+          <div class="explanation-text" id="explanation-text">
+            Compile a program and click <strong>"Next Step"</strong> to watch the CPU execute instruction by instruction.
+          </div>
+        </div>
+      </section>
+
+      <!-- Card 5: CPU Core Registers with Variable Mapping & Stack Frame Grouping -->
+      <section class="card registers-card" id="card-registers">
+        <div class="card-header">
+          <div class="header-title-group">
+            <span class="card-title">🖥️ 16-Bit CPU Core Registers &amp; Condition Codes</span>
+          </div>
+          <div class="card-actions">
+            <div class="cc-flags-group">
+              <span class="cc-label">Condition Codes (CC):</span>
+              <span class="cc-badge" id="cc-flag-n">N</span>
+              <span class="cc-badge" id="cc-flag-z">Z</span>
+              <span class="cc-badge active" id="cc-flag-p">P</span>
+            </div>
+            <button class="btn-expand" data-card="card-registers" title="Toggle Fullscreen">⛶</button>
+          </div>
+        </div>
+
+        <div class="registers-wrapper">
+          <!-- General Purpose Registers R0 - R4 -->
+          <div class="registers-grid">
+            <div class="register-cell" id="reg-cell-0">
+              <div class="reg-header">
+                <span class="reg-name">R0</span>
+                <span class="reg-role">Accumulator / Arg / Ret</span>
+                <span class="delta-badge" id="reg-delta-0"></span>
+              </div>
+              <div class="reg-val-row">
+                <span class="reg-val-hex" id="reg-val-0">0x0000</span>
+                <span class="reg-val-dec" id="reg-dec-0">#0</span>
+              </div>
+              <div class="reg-context-tag" id="reg-ctx-0">---</div>
+            </div>
+
+            <div class="register-cell" id="reg-cell-1">
+              <div class="reg-header">
+                <span class="reg-name">R1</span>
+                <span class="reg-role">General Register</span>
+                <span class="delta-badge" id="reg-delta-1"></span>
+              </div>
+              <div class="reg-val-row">
+                <span class="reg-val-hex" id="reg-val-1">0x0000</span>
+                <span class="reg-val-dec" id="reg-dec-1">#0</span>
+              </div>
+              <div class="reg-context-tag" id="reg-ctx-1">---</div>
+            </div>
+
+            <div class="register-cell" id="reg-cell-2">
+              <div class="reg-header">
+                <span class="reg-name">R2</span>
+                <span class="reg-role">General Register</span>
+                <span class="delta-badge" id="reg-delta-2"></span>
+              </div>
+              <div class="reg-val-row">
+                <span class="reg-val-hex" id="reg-val-2">0x0000</span>
+                <span class="reg-val-dec" id="reg-dec-2">#0</span>
+              </div>
+              <div class="reg-context-tag" id="reg-ctx-2">---</div>
+            </div>
+
+            <div class="register-cell" id="reg-cell-3">
+              <div class="reg-header">
+                <span class="reg-name">R3</span>
+                <span class="reg-role">General Register</span>
+                <span class="delta-badge" id="reg-delta-3"></span>
+              </div>
+              <div class="reg-val-row">
+                <span class="reg-val-hex" id="reg-val-3">0x0000</span>
+                <span class="reg-val-dec" id="reg-dec-3">#0</span>
+              </div>
+              <div class="reg-context-tag" id="reg-ctx-3">---</div>
+            </div>
+
+            <div class="register-cell" id="reg-cell-4">
+              <div class="reg-header">
+                <span class="reg-name">R4</span>
+                <span class="reg-role">General Register</span>
+                <span class="delta-badge" id="reg-delta-4"></span>
+              </div>
+              <div class="reg-val-row">
+                <span class="reg-val-hex" id="reg-val-4">0x0000</span>
+                <span class="reg-val-dec" id="reg-dec-4">#0</span>
+              </div>
+              <div class="reg-context-tag" id="reg-ctx-4">---</div>
+            </div>
+
+            <div class="register-cell" id="reg-cell-7">
+              <div class="reg-header">
+                <span class="reg-name">R7</span>
+                <span class="reg-role">Link Register (Return)</span>
+                <span class="delta-badge" id="reg-delta-7"></span>
+              </div>
+              <div class="reg-val-row">
+                <span class="reg-val-hex" id="reg-val-7">0x0000</span>
+                <span class="reg-val-dec" id="reg-dec-7">#0</span>
+              </div>
+              <div class="reg-context-tag" id="reg-ctx-7">---</div>
+            </div>
+          </div>
+
+          <!-- Active Stack Frame Visual Grouping: R5 (FP) & R6 (SP) -->
+          <div class="stack-frame-group">
+            <div class="stack-frame-header">
+              <span class="sfg-label">🔗 Active Stack Frame Relational Group</span>
+              <span class="sfg-sub">Frame Pointer (FP) &amp; Stack Pointer (SP)</span>
+            </div>
+            <div class="stack-frame-cells">
+              <div class="register-cell frame-cell" id="reg-cell-5">
+                <div class="reg-header">
+                  <span class="reg-name">R5 [FP]</span>
+                  <span class="reg-role">Frame Pointer</span>
+                  <span class="delta-badge" id="reg-delta-5"></span>
+                </div>
+                <div class="reg-val-row">
+                  <span class="reg-val-hex" id="reg-val-5">0x0000</span>
+                  <span class="reg-val-dec" id="reg-dec-5">#0</span>
+                </div>
+                <div class="reg-context-tag" id="reg-ctx-5">Base of Stack Frame</div>
+              </div>
+
+              <div class="register-cell frame-cell" id="reg-cell-6">
+                <div class="reg-header">
+                  <span class="reg-name">R6 [SP]</span>
+                  <span class="reg-role">Stack Pointer</span>
+                  <span class="delta-badge" id="reg-delta-6"></span>
+                </div>
+                <div class="reg-val-row">
+                  <span class="reg-val-hex" id="reg-val-6">0x0000</span>
+                  <span class="reg-val-dec" id="reg-dec-6">#0</span>
+                </div>
+                <div class="reg-context-tag" id="reg-ctx-6">Top of Stack (LIFO)</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Card 6: Dedicated Stack Visualizer -->
+      <section class="card stack-card" id="card-stack">
+        <div class="card-header">
+          <div class="header-title-group">
+            <span class="card-title">📚 Dedicated LIFO Stack Inspector (Growing Downward from 0xFF00)</span>
+            <span id="stack-depth-tag" class="badge badge-accent">Stack Depth: 0</span>
+          </div>
+          <div class="card-actions">
+            <button class="btn-expand" data-card="card-stack" title="Toggle Fullscreen">⛶</button>
+          </div>
+        </div>
+        <div class="stack-visualizer-container" id="stack-visualizer-container">
+          <!-- Stack slots dynamically populated -->
+          <div class="empty-state">Stack is currently at initial boundary (0xFF00).</div>
+        </div>
+      </section>
+
+      <!-- Card 7: Memory Bus Inspector with Minimap Heatmap & Inline Symbols -->
+      <section class="card memory-card" id="card-memory">
+        <div class="card-header memory-header">
+          <div class="header-title-group">
+            <span class="card-title">💾 64KW Memory Bus Inspector</span>
+          </div>
+          <div class="card-actions">
+            <div class="memory-filter-group">
+              <button class="mem-filter-btn active" data-filter="around-pc">Around PC</button>
+              <button class="mem-filter-btn" data-filter="code">Code (x3000)</button>
+              <button class="mem-filter-btn" data-filter="data">Data &amp; Vars</button>
+              <button class="mem-filter-btn" data-filter="stack">Stack (xFF00)</button>
+              <button class="mem-filter-btn" data-filter="all">All Words</button>
+            </div>
+            <button class="btn-expand" data-card="card-memory" title="Toggle Fullscreen">⛶</button>
+          </div>
+        </div>
+
+        <!-- Memory Heatmap / Macro Mini-Map -->
+        <div class="memory-heatmap-container">
+          <div class="heatmap-header">
+            <span>Macro Address Space Heatmap (0x0000 ➔ 0xFFFF) - <em>Click any segment to jump</em>:</span>
+            <span id="heatmap-current-tag" class="code-font" style="color: var(--accent-cyan);">PC: 0x3000</span>
+          </div>
+          <div class="heatmap-bar" id="heatmap-bar">
+            <div class="hm-segment hm-traps" data-jump="0" title="Traps &amp; System (0x0000 - 0x00FF)">System</div>
+            <div class="hm-segment hm-gap1" data-jump="256" title="Unused (0x0100 - 0x2FFF)"></div>
+            <div class="hm-segment hm-code" data-jump="12288" title="Code / Text Segment (0x3000)">Code (.text)</div>
+            <div class="hm-segment hm-data" data-jump="12450" title="Data &amp; Variables Segment">Data (.data)</div>
+            <div class="hm-segment hm-heap" data-jump="32768" title="Dynamic Heap Base (0x8000)">Heap</div>
+            <div class="hm-segment hm-gap2" data-jump="40000" title="Unallocated RAM"></div>
+            <div class="hm-segment hm-stack" data-jump="65280" title="Call Stack (0xFF00 Downward)">Stack (xFF00)</div>
+            <div class="hm-needle" id="hm-pc-needle" style="left: 18.7%;"></div>
+          </div>
+        </div>
+
+        <!-- Memory Table with Inline Symbol Column -->
+        <div class="memory-table-wrapper" id="memory-scroll-container">
+          <table class="data-table memory-table" id="memory-table">
+            <thead>
+              <tr>
+                <th style="width: 36px;"></th>
+                <th>Address</th>
+                <th>Symbol / Variable Label</th>
+                <th>Word (Hex)</th>
+                <th>Decimal</th>
+                <th>Disassembly / Decoded Meaning</th>
+              </tr>
+            </thead>
+            <tbody id="memory-tbody">
+              <tr><td colspan="6" class="empty-state">Load a program to inspect 16-bit memory cells.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>
