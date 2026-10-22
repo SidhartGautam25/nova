@@ -304,7 +304,31 @@ function encodeEntry(entry, symbols) {
       expectCount(entry, 2);
     }
 
-    case "ADD":
+    case "ADD": {
+      expectCount(entry, 3);
+
+      const dr = parseRegister(operands[0], lineNumber);
+      const sr1 = parseRegister(operands[1], lineNumber);
+
+      if (/^#-?\d+$/.test(operands[2].trim()) || /^x[0-9a-f]+$/i.test(operands[2].trim()) || /^0x[0-9a-f]+$/i.test(operands[2].trim())) {
+        const imm = parseNumber(operands[2], lineNumber);
+        if (imm === 0) {
+          return encodeAND(dr, sr1, sr1);
+        }
+        if (dr === sr1) {
+          requireRange(imm, -32, 31, "ADD immediate", lineNumber);
+          return encodeADDI(dr, imm);
+        }
+        throw new AssemblyError(
+          "ADD with different source and destination only supports immediate #0",
+          lineNumber
+        );
+      }
+
+      const sr2 = parseRegister(operands[2], lineNumber);
+      return encodeADD(dr, sr1, sr2);
+    }
+
     case "AND": {
       expectCount(entry, 3);
 
@@ -312,9 +336,7 @@ function encodeEntry(entry, symbols) {
       const sr1 = parseRegister(operands[1], lineNumber);
       const sr2 = parseRegister(operands[2], lineNumber);
 
-      return mnemonic === "ADD"
-        ? encodeADD(dr, sr1, sr2)
-        : encodeAND(dr, sr1, sr2);
+      return encodeAND(dr, sr1, sr2);
     }
 
     case "NOT": {

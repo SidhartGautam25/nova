@@ -54,6 +54,20 @@ export function buildSymbolMap(compilationSymbols, assembledSymbols, words, orig
       const name = Array.isArray(item) ? item[0] : item.name;
       const sym = Array.isArray(item) ? item[1] : item;
       slotToVar[sym.slot] = { name, ...sym };
+
+      // Map stack-allocated local variable in main activation record
+      // R5 is anchored at 0xFEFF (0xFF00 - 1), locals start at R5 - 1 - slot
+      const stackAddr = 0xFF00 - 1 - 1 - sym.slot;
+      map[stackAddr] = {
+        label: `LOCAL_${name}`,
+        address: stackAddr,
+        hexAddress: "0x" + stackAddr.toString(16).toUpperCase(),
+        varName: name,
+        varType: sym.valueType || "int",
+        slot: sym.slot,
+        offset: -(sym.slot + 1),
+        role: `Local variable '${name}' (${sym.valueType || "int"}) [FP - #${sym.slot + 1}]`,
+      };
     }
   }
 
@@ -467,11 +481,14 @@ export function extractStackSnapshot(vm) {
     if (addr === top) {
       role = "Stack Top Boundary (xFF00)";
     }
-    if (addr === sp) {
-      role = "Top of Stack (SP / R6)";
-    }
     if (addr === fp && fp !== 0) {
       role = "Active Frame Pointer (FP / R5)";
+    } else if (fp !== 0 && addr < fp && addr >= sp) {
+      const offset = fp - addr;
+      role = `Local variable slot [FP - #${offset}]`;
+    }
+    if (addr === sp) {
+      role = (role !== "Empty stack slot" ? `${role} / ` : "") + "Top of Stack (SP / R6)";
     }
 
     snapshot.push({

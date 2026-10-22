@@ -248,7 +248,7 @@ Incremental Implementation Checklist
 
 To build this systematically without breaking existing functionality, tackle each milestone in sequence:
 
-[ ] Milestone 1: Stack Frame Architecture
+[x] Milestone 1: Stack Frame Architecture
     ├── Define R5 (FP) and R6 (SP) conventions
     └── Convert VariableDeclaration & IdentifierExpression from static VAR_n to LDR/STR relative to R5
 [ ] Milestone 2: Function Call Subroutines & ABI

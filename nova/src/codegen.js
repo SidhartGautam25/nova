@@ -18,7 +18,6 @@ export function generateAssembly(analysis) {
 
   const instructions = [];
   const data = [];
-  const variableLabels = new Map();
 
   let nextConstant = 0;
   let stringCounter=0;
@@ -108,12 +107,8 @@ function emitIntegerPrintCall() {
     data.push(`    ${directive}`);
   }
 
-  function variableLabel(symbol) {
-    if (!variableLabels.has(symbol.slot)) {
-      variableLabels.set(symbol.slot, `VAR_${symbol.slot}`);
-    }
-
-    return variableLabels.get(symbol.slot);
+  function localOffset(symbol) {
+    return -(symbol.slot + 1);
   }
 
   function addConstant(value) {
@@ -147,8 +142,8 @@ function emitIntegerPrintCall() {
       }
 
       case "IdentifierExpression": {
-        const label = variableLabel(node.symbol);
-        emit(`LD R0, ${label}`);
+        const offset = localOffset(node.symbol);
+        emit(`LDR R0, R5, #${offset}`);
         return;
       }
 
@@ -267,7 +262,8 @@ function emitIntegerPrintCall() {
 
         generateExpression(node.initializer);
 
-        emit(`ST R0, ${variableLabel(node.symbol)}`);
+        const offset = localOffset(node.symbol);
+        emit(`STR R0, R5, #${offset}`);
         return;
       }
 
@@ -400,7 +396,8 @@ function emitIntegerPrintCall() {
 
       case "AssignmentStatement": {
         generateExpression(node.value);
-        emit(`ST R0, ${variableLabel(node.symbol)}`);
+        const offset = localOffset(node.symbol);
+        emit(`STR R0, R5, #${offset}`);
         return;
       }
 
@@ -424,20 +421,31 @@ function emitIntegerPrintCall() {
   instructions.push("START_INIT:");
   emit("LD R6, STACK_TOP");
 
+  // Prolog: Save old FP, anchor new FP, and allocate local variables
+  emit("ADDI R6, #-1");
+  emit("STR R5, R6, #0");
+  emit("ADD R5, R6, #0");
+
+  const numLocals = symbols.size;
+  if (numLocals > 0) {
+    let remaining = numLocals;
+    while (remaining > 0) {
+      const chunk = Math.min(remaining, 32);
+      emit(`ADDI R6, #${-chunk}`);
+      remaining -= chunk;
+    }
+  }
+
   for (const statement of ast.statements) {
     generateStatement(statement);
   }
 
+  // Epilog: Collapse locals and restore previous Frame Pointer
+  emit("ADD R6, R5, #0");
+  emit("LDR R5, R6, #0");
+  emit("ADDI R6, #1");
+
   emit("TRAP x25");
-
-  for (const symbol of symbols.values()) {
-    const label = variableLabel(symbol);
-
-    // Ensure each variable slot is emitted only once.
-    if (!data.includes(`${label}:`)) {
-      addData(label, ".FILL #0");
-    }
-  }
 
   // Put user data right after TRAP x25
   instructions.push(...data);
@@ -471,6 +479,8 @@ function emitIntegerPrintCall() {
     instructions.push("    .FILL #48");
     instructions.push("INT_ONE:");
     instructions.push("    .FILL #1");
+    instructions.push("PRINT_FLAG:");
+    instructions.push("    .FILL #0");
   }
 
   instructions.push(".END");
@@ -507,8 +517,8 @@ function buildIntegerPrinter() {
     "    JMP R7",
 
     "PRINT_INT_DIGITS:",
-    "    NOT R5, R4",
-    "    AND R5, R5, R4",
+    "    LOADI R1, #0",
+    "    ST R1, PRINT_FLAG",
   ];
 
   const places = [
@@ -557,14 +567,15 @@ function buildIntegerPrinter() {
       lines.push(
         "    AND R1, R3, R3",
         `    BRp ${output}`,
-        "    AND R1, R5, R5",
+        "    LD R1, PRINT_FLAG",
         `    BRp ${output}`,
         `    BRnzp ${next}`,
         `${output}:`,
         "    LD R1, ASCII_ZERO",
         "    ADD R0, R3, R1",
         "    TRAP x21",
-        "    LD R5, INT_ONE",
+        "    LOADI R1, #1",
+        "    ST R1, PRINT_FLAG",
         `    BRnzp ${next}`
       );
     }

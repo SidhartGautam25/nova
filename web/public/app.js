@@ -340,7 +340,7 @@ function renderCompilerStages(data) {
         (sym) => `
       <tr>
         <td><strong>${escapeHtml(sym.name)}</strong></td>
-        <td><code>slot #${sym.slot} (VAR_${sym.slot})</code></td>
+        <td><code>slot #${sym.slot} [FP - #${sym.slot + 1}]</code></td>
         <td><span class="badge badge-accent">${escapeHtml(sym.valueType)}</span></td>
         <td>Line ${sym.line}</td>
       </tr>

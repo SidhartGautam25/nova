@@ -87,25 +87,39 @@ Performs scope validation and static typing:
   4. Arithmetic operations (`+`, `-`) require integer operands.
 
 ### 3.4 Code Generation (`src/codegen.js`)
-Translates the typed AST into NVM assembly:
-1. **Preamble**:
+Translates the typed AST into NVM assembly using standard stack-allocated activation records:
+1. **Preamble & Stack Initialization**:
    - Emits `.ORIG x3000`.
-   - Initializes stack pointer `R6` from `STACK_TOP: .FILL xFF00`.
-2. **Statement Translation**:
-   - **Variable Declarations**: Computes expression into `R0`, then stores into variable label `ST R0, VAR_<slot>`.
+   - Initializes Stack Pointer `R6` (SP) from `STACK_TOP: .FILL xFF00`.
+2. **Activation Record Prolog**:
+   - Saves caller's Frame Pointer `R5` on the stack: `ADDI R6, #-1; STR R5, R6, #0`.
+   - Anchors new Frame Pointer: `ADD R5, R6, #0`.
+   - Reserves stack space for $N$ local variables: `ADDI R6, #-N`.
+3. **Local Variable Access (LDR / STR)**:
+   - Variables are mapped to stack slots anchored relative to the Frame Pointer `R5`:
+     - Local 0: `R5 - 1` (`LDR R0, R5, #-1` / `STR R0, R5, #-1`)
+     - Local 1: `R5 - 2` (`LDR R0, R5, #-2` / `STR R0, R5, #-2`)
+     - Local $k$: `R5 - (k + 1)` (`LDR R0, R5, #-(k+1)` / `STR R0, R5, #-(k+1)`)
+   - Eliminates static global `.data` variable labels (`VAR_0`, `VAR_1`), enabling real-world activation records on the call stack.
+4. **Statement Translation**:
+   - **Variable Declarations**: Evaluates initializer into `R0`, then stores into stack frame `STR R0, R5, #offset`.
+   - **Assignments**: Evaluates new value into `R0`, then stores into stack frame `STR R0, R5, #offset`.
    - **String Printing**: Emits `LD R0, STRING_PTR_<id>` followed by `TRAP x22` (`PUTS`).
-   - **Integer Printing**: Computes value into `R0`, saves return address in `R7`, branches to the runtime subroutine `PRINT_INT`, and resumes execution at return label.
-3. **Expression Evaluation (Stack Machine)**:
+   - **Integer Printing**: Computes value into `R0`, saves return address in `R7`, branches to the runtime subroutine `PRINT_INT`, and resumes execution at return label. The runtime subroutine preserves `R5` (Frame Pointer) at all times.
+5. **Expression Evaluation (Stack Machine)**:
    - Evaluates left operand into `R0`.
    - Pushes `R0` onto stack: `ADDI R6, #-1; STR R0, R6, #0`.
    - Evaluates right operand into `R0`.
    - Moves right operand to `R1`: `AND R1, R0, R0`.
    - Pops left operand into `R2`: `LDR R2, R6, #0; ADDI R6, #1`.
    - Adds (`ADD R0, R2, R1`) or subtracts (`NOT R1, R1; ADDI R1, #1; ADD R0, R2, R1`).
-4. **Subroutines**:
-   - Inlines `PRINT_INT` when integer printing is used. It extracts base-10 decimal digits (10000s, 1000s, 100s, 10s, 1s) via repeated subtraction and emits ASCII characters using `TRAP x21` (`OUT`).
-5. **Data Section & Postamble**:
-   - Emits `.FILL` data for constants, string pointers, variable memory slots, and `STACK_TOP`.
+6. **Activation Record Epilog**:
+   - Collapses local variables: `ADD R6, R5, #0`.
+   - Restores previous Frame Pointer: `LDR R5, R6, #0; ADDI R6, #1`.
+   - Halts with `TRAP x25`.
+7. **Subroutines & Data Section**:
+   - Inlines `PRINT_INT` when integer printing is used. It extracts base-10 decimal digits via repeated subtraction and emits ASCII characters using `TRAP x21` (`OUT`).
+   - Emits `.FILL` data for constants, string pointers, and `STACK_TOP`.
    - Terminates with `.END`.
 
 ---

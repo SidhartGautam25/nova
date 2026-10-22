@@ -36,7 +36,7 @@ Then open your browser at:
 Inspect each transformation stage of the Nova compiler:
 1. **Tokens (Lexer)**: View raw tokens, line/column coordinates, and token classifications.
 2. **AST (Parser)**: Interactive, formatted Abstract Syntax Tree representation.
-3. **Symbols (Semantic Analyzer)**: View symbol table, variable allocation slots (`VAR_0`, `VAR_1`), and data types.
+3. **Symbols (Semantic Analyzer)**: View symbol table, stack-frame variable allocation slots (`slot #0 [FP - #1]`, `slot #1 [FP - #2]`), and data types.
 4. **Assembly (Codegen)**: Emitted LC-3 symbolic assembly instructions.
 5. **Machine Words (Assembler / Binary)**: Decoded 16-bit machine words and instructions mapped to hexadecimal memory addresses.
 

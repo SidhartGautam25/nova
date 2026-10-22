@@ -262,3 +262,68 @@ test("rejects continue outside of a loop", () => {
     /'continue' can only be used inside a loop/
   );
 });
+
+test("allocates local variables in stack frame relative to Frame Pointer (R5)", () => {
+  const source = `
+    make int a = 11;
+    make int b = 22;
+    make int c = a + b;
+    print(c);
+  `;
+  const { assembly } = compile(source);
+
+  // 1. Prolog: Save old FP, set FP = SP, reserve space for 3 locals
+  assert.match(assembly, /ADDI R6, #-1/);
+  assert.match(assembly, /STR R5, R6, #0/);
+  assert.match(assembly, /ADD R5, R6, #0/);
+  assert.match(assembly, /ADDI R6, #-3/);
+
+  // 2. Variable accesses use LDR/STR relative to R5
+  assert.match(assembly, /STR R0, R5, #-1/); // store a
+  assert.match(assembly, /STR R0, R5, #-2/); // store b
+  assert.match(assembly, /LDR R0, R5, #-1/); // read a
+  assert.match(assembly, /LDR R0, R5, #-2/); // read b
+  assert.match(assembly, /STR R0, R5, #-3/); // store c
+  assert.match(assembly, /LDR R0, R5, #-3/); // read c for print
+
+  // 3. Epilog: Collapse locals and restore previous FP
+  assert.match(assembly, /ADD R6, R5, #0/);
+  assert.match(assembly, /LDR R5, R6, #0/);
+  assert.match(assembly, /ADDI R6, #1/);
+
+  // 4. No static VAR_ labels in .data
+  assert.doesNotMatch(assembly, /VAR_0:/);
+  assert.doesNotMatch(assembly, /VAR_1:/);
+  assert.doesNotMatch(assembly, /VAR_2:/);
+
+  // 5. Execution correctness
+  const output = runSource(source);
+  assert.equal(output.trim(), "33");
+});
+
+test("preserves Frame Pointer (R5) and Stack Pointer (R6) across execution lifecycle", () => {
+  const source = `
+    make int x = 100;
+    make int y = 200;
+    print(x);
+    x = x + y;
+    print(x);
+  `;
+  const { assembly } = compile(source);
+  const { origin, words } = assemble(assembly);
+
+  let output = "";
+  const vm = new VirtualMachine({
+    writeOutput: (text) => { output += text; },
+  });
+  vm.loadProgram(words, origin);
+
+  // Run program to completion
+  vm.run(100_000);
+
+  // After epilog: R6 (SP) must be restored to 0xFF00, R5 (FP) restored to 0
+  assert.equal(vm.registers[6], 0xFF00, "Stack pointer R6 should be restored to 0xFF00");
+  assert.equal(vm.registers[5], 0, "Frame pointer R5 should be restored to initial 0");
+  assert.equal(output.trim(), "100300");
+});
+

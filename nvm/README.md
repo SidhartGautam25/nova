@@ -14,7 +14,29 @@ NVM is a 16-bit word-addressable RISC virtual machine and execution environment 
 | **Program Counter (PC)**| 16-bit register | Points to current instruction address. Default origin: `0x3000`. |
 | **Condition Codes (CC)**| 3 bits (`N`, `Z`, `P`) | Automatically set whenever any register is modified. |
 | **Endianness** | Big-Endian | High byte first in file format and data view serialization. |
-| **Stack Convention** | Downward-growing from `0xFF00` | Register `R6` serves as the Stack Pointer. |
+| **Stack Convention** | Downward-growing from `0xFF00` | Register `R6` serves as Stack Pointer (SP). Register `R5` serves as Frame Pointer (FP) anchoring activation records. |
+
+### Activation Record & Stack Frame Layout
+NVM uses standard C / RISC call stack activation records:
+```
+High Memory (0xFF00)
+    ┌──────────────────────────┐
+    │ Caller's Stack Frame     │
+    ├──────────────────────────┤
+    │ Saved Frame Pointer (R5) │ <── Current Frame Pointer (R5)
+    ├──────────────────────────┤
+    │ Local Variable 0         │  (R5 - 1)
+    ├──────────────────────────┤
+    │ Local Variable 1         │  (R5 - 2)
+    ├──────────────────────────┤
+    │ Temporary Evaluation     │
+    ├──────────────────────────┤
+    │ ...                      │ <── Current Stack Pointer (R6)
+Low Memory (grows downwards)
+```
+- **Prolog**: `ADDI R6, #-1; STR R5, R6, #0; ADD R5, R6, #0; ADDI R6, #-N`
+- **Variable Access**: `LDR R0, R5, #-1` (read local 0), `STR R0, R5, #-1` (write local 0)
+- **Epilog**: `ADD R6, R5, #0; LDR R5, R6, #0; ADDI R6, #1`
 
 ---
 

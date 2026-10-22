@@ -11,7 +11,7 @@ A standalone, self-contained educational computing platform written in modern Ja
                               v  [novac: Nova Compiler]
 +-------------------------------------------------------------+
 |                     Assembly Text (.asm)                    |
-|             .ORIG x3000, LD, ST, ADD, TRAP...               |
+|       .ORIG x3000, Activation Records (FP/SP), LDR, STR...  |
 +-------------------------------------------------------------+
                               |
                               v  [NVM Assembler]
@@ -218,6 +218,50 @@ Run the built-in Node test suite:
 ```bash
 node --test
 ```
+
+---
+
+## Systems Architecture: Stack-Allocated Locals & Activation Records
+
+Nova implements standard systems-level activation records (call stack frames) aligned with C, ARM, and x86 architectures rather than static global `.data` allocation:
+
+```
+High Memory (0xFF00)
+    ┌──────────────────────────┐
+    │ Caller's Stack Frame     │
+    ├──────────────────────────┤
+    │ Saved Frame Pointer (R5) │ <── Active Frame Pointer (R5)
+    ├──────────────────────────┤
+    │ Local Variable 0         │  [R5 - 1]
+    ├──────────────────────────┤
+    │ Local Variable 1         │  [R5 - 2]
+    ├──────────────────────────┤
+    │ Temporary Evaluation     │
+    ├──────────────────────────┤
+    │ ...                      │ <── Stack Pointer (R6)
+Low Memory (grows downwards)
+```
+
+- **R6 (Stack Pointer - SP)**: Points to the top of the downward-growing stack (initialized to `0xFF00`).
+- **R5 (Frame Pointer - FP)**: Anchors the active function/block frame.
+- **Prolog**:
+  ```asm
+  ADDI R6, #-1        ; Push caller's FP
+  STR R5, R6, #0
+  ADD R5, R6, #0      ; Establish new FP = SP
+  ADDI R6, #-N        ; Allocate N local variables
+  ```
+- **Local Variable Access**:
+  ```asm
+  LDR R0, R5, #-1     ; Read local variable 0
+  STR R0, R5, #-1     ; Write local variable 0
+  ```
+- **Epilog**:
+  ```asm
+  ADD R6, R5, #0      ; Collapse locals (SP = FP)
+  LDR R5, R6, #0      ; Restore caller's FP
+  ADDI R6, #1         ; Pop saved FP
+  ```
 
 ---
 
