@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "test": "node --test",
+    "build": "node scripts/package-sdk.js",
     "package": "node scripts/package-sdk.js"
   },
   "keywords": [],

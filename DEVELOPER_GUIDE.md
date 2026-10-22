@@ -208,17 +208,34 @@ test("my new feature works", () => {
 
 ---
 
-## 6. Packaging a Distribution (Only when sharing with others)
+## 6. How GitHub Installation Works & How to Publish Updates
 
-When you are ready to publish a new standalone ZIP release for other users:
+When a user runs the one-line installer from GitHub:
+```powershell
+irm https://raw.githubusercontent.com/SidhartGautam25/nova/main/install.ps1 | iex
+```
+The installer script downloads **`dist/nova-sdk.zip`** directly from the repository and extracts it to `~/.nova`.
+
+### The 3 Steps to Publish Your Changes to GitHub
+
+Because the installer downloads `dist/nova-sdk.zip`, you must update that ZIP file before pushing to GitHub:
 
 ```bash
-node scripts/package-sdk.js
+# 1. Update the dist/ package and dist/nova-sdk.zip
+npm run build
+
+# 2. Run all tests to make sure everything passes
+npm test
+
+# 3. Commit and push to GitHub
+git add .
+git commit -m "Add new features"
+git push
 ```
 
-This automatically:
-1. Gathers `bin/`, `ndk/`, `nova/src/`, `nvm/src/`, `examples/`, and install scripts into `dist/nova-sdk/`.
-2. Compresses everything into `dist/nova-sdk.zip`.
+**That's all!**
+- `npm run build` (or `node scripts/package-sdk.js`) automatically gathers your latest `nova/src`, `nvm/src`, `ndk`, and `bin` into `dist/nova-sdk/` and compresses it into `dist/nova-sdk.zip`.
+- Once you `git push`, any user who installs via GitHub will immediately receive your updated features.
 
 ---
 
